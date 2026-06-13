@@ -1,8 +1,8 @@
 {
-  "name": "lance-skills",
+  "name": "ai-plugins",
   "owner": {
     "name": "Lance Willett",
-    "url": "https://github.com/lancewillett/skills"
+    "url": "https://github.com/lancewillett/ai-plugins"
   },
   "metadata": {
     "description": "Public, general-purpose skills and plugins for Claude Code and Codex",
