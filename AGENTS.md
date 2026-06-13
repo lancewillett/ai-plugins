@@ -2,15 +2,6 @@
 
 Public, general-purpose AI workflow assets for Claude Code and Codex: plugins, standalone skills, and slash commands. Nothing environment-specific.
 
-## Repo layout
-
-- `.claude-plugin/marketplace.json`: Claude Code marketplace manifest listing installable plugins.
-- `.agents/plugins/marketplace.json`: Codex marketplace manifest (same plugins, Codex format).
-- `plugins/<name>/`: a packaged plugin with `.claude-plugin/plugin.json` (Claude Code), `.codex-plugin/plugin.json` (Codex), and a `skills/<name>/SKILL.md` copy.
-- `skills/<name>/SKILL.md`: the generalized skill source that packaged plugins copy from.
-
-Slash commands, when a plugin ships them, live under `plugins/<name>/commands/`.
-
 ## Working conventions
 
 - Keep edits small and practical. This is a personal automation repo, not a product framework.
