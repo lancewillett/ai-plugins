@@ -6,5 +6,5 @@
     "name": "Lance Willett"
   },
   "license": "MIT",
-  "skills": ["./skills/kb-to-spec"]
+  "skills": "./skills/kb-to-spec"
 }

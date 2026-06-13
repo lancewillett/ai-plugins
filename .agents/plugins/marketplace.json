@@ -1,12 +1,7 @@
 {
   "name": "lance-skills",
-  "owner": {
-    "name": "Lance Willett",
-    "url": "https://github.com/lancewillett/skills"
-  },
-  "metadata": {
-    "description": "Public, general-purpose skills and plugins for Claude Code and Codex",
-    "version": "1.0.0"
+  "interface": {
+    "displayName": "Lance skills"
   },
   "plugins": [
     {
@@ -18,7 +13,7 @@
         "name": "Lance Willett"
       },
       "license": "MIT",
-      "skills": ["./skills/kb-to-spec"]
+      "skills": "./skills/kb-to-spec"
     }
   ]
 }
