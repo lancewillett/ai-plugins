@@ -46,6 +46,10 @@ Audit any JS-heavy codebase for performance issues. It checks bundle weight, dep
 
 Capture before/after screenshots for PRs with visual UI changes using Playwright. It reads the repo's dev-server setup, captures matched before/after shots at the right viewports, and can upload them straight into the PR comment as inline images (works on github.com and GitHub Enterprise). Use it when a PR changes CSS, components, layouts, or themes, or when you say "screenshot this change" or "add before/after screenshots to the PR". Requires the Playwright MCP server.
 
+### claude-cleanup
+
+Audit and clean up your Claude Code configuration. It checks skills, hooks, settings, plugins, configs, commands, and stale data for broken references, outdated paths, version drift, and orphaned files, then fixes them interactively (or previews with `--dry-run`). Use it for periodic maintenance, after a folder reorganization, or when you say "clean up my Claude config" or "audit my skills and plugins".
+
 ## Contributing
 
 This repo is for personal use, but pull requests that improve or generalize existing skills are welcome. New skills should be general-purpose and not private or environment-specific.
