@@ -14,6 +14,17 @@
       },
       "license": "MIT",
       "skills": "./skills/kb-to-spec"
+    },
+    {
+      "name": "js-perf-audit",
+      "description": "Audit any JS-heavy codebase for performance issues. Checks bundle weight, code splitting, selector memoization, rendering architecture, and performance infrastructure. Produces a findings report with severity ratings and recommendations.",
+      "source": "./plugins/js-perf-audit",
+      "version": "1.0.0",
+      "author": {
+        "name": "Lance Willett"
+      },
+      "license": "MIT",
+      "skills": "./skills/js-perf-audit"
     }
   ]
 }
