@@ -1,0 +1,24 @@
+{
+  "name": "lance-skills",
+  "owner": {
+    "name": "Lance Willett",
+    "url": "https://github.com/lancewillett/skills"
+  },
+  "metadata": {
+    "description": "Public, general-purpose Claude Code skills and plugins",
+    "version": "1.0.0"
+  },
+  "plugins": [
+    {
+      "name": "kb-to-spec",
+      "description": "Promote a private Markdown note into a shareable spec committed to a GitHub repo. De-privatizes content, writes a standalone spec with an Authors header, links back from the private note, and keeps the two files independent.",
+      "source": "./plugins/kb-to-spec",
+      "version": "1.0.0",
+      "author": {
+        "name": "Lance Willett"
+      },
+      "license": "MIT",
+      "skills": ["./skills/kb-to-spec"]
+    }
+  ]
+}

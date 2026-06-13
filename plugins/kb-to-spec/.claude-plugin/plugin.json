@@ -1,0 +1,10 @@
+{
+  "name": "kb-to-spec",
+  "description": "Promote a private Markdown note into a shareable spec committed to a GitHub repo. De-privatizes content, writes a standalone spec with an Authors header, links back from the private note, and keeps the two files independent.",
+  "version": "1.0.0",
+  "author": {
+    "name": "Lance Willett"
+  },
+  "license": "MIT",
+  "skills": ["./skills/kb-to-spec"]
+}
