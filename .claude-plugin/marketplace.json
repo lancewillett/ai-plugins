@@ -19,6 +19,17 @@
       },
       "license": "MIT",
       "skills": ["./skills/kb-to-spec"]
+    },
+    {
+      "name": "visual-screenshots",
+      "description": "Capture before/after screenshots for PRs with visual UI changes using Playwright. Reads the repo's dev-server setup, captures matched before/after shots at multiple viewports, and can upload them straight into the PR comment as inline images. Works on github.com and GitHub Enterprise.",
+      "source": "./plugins/visual-screenshots",
+      "version": "1.0.0",
+      "author": {
+        "name": "Lance Willett"
+      },
+      "license": "MIT",
+      "skills": ["./skills/visual-screenshots"]
     }
   ]
 }
