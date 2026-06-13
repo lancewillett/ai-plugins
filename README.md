@@ -1,4 +1,4 @@
-# lance-skills
+# ai-plugins
 
 Public skills and plugins for Claude Code and Codex. General-purpose—nothing environment-specific.
 
@@ -15,7 +15,7 @@ Add this marketplace once:
 Then install any plugin by name:
 
 ```
-/plugin install kb-to-spec@lance-skills
+/plugin install kb-to-spec@ai-plugins
 ```
 
 ### Codex
@@ -29,7 +29,7 @@ codex plugin marketplace add https://github.com/lancewillett/ai-plugins.git
 Then install any plugin by name:
 
 ```
-codex plugin install kb-to-spec@lance-skills
+codex plugin install kb-to-spec@ai-plugins
 ```
 
 ## Skills
