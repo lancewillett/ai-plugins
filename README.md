@@ -1,6 +1,6 @@
-# ai-plugins
+# Lance's AI plugins
 
-Public skills and plugins for Claude Code and Codex. General-purpose—nothing environment-specific.
+Public skills, commands, and scripts wrapped into a simple plugin marketplace that works with both Claude Code and Codex.
 
 ## Install
 
@@ -38,25 +38,13 @@ codex plugin install kb-to-spec@ai-plugins
 
 Promote a private Markdown note into a shareable spec committed to a GitHub repo.
 
-It de-privatizes the content, writes a standalone spec with an Authors header, links back from the private note, and keeps the two files independent—no duplicated content.
+It de-privatizes the content, writes a standalone spec with an Authors header, links back from the private note, and keeps the two files independent, with no duplicated content.
 
 Use it when publishing a plan as a shared design doc, committing notes into a project repo, or when you say "promote this to a spec", "turn this note into a repo spec", or "make this shareable".
 
-## Repo layout
-
-```
-.claude-plugin/marketplace.json      — Claude Code marketplace manifest
-.agents/plugins/marketplace.json     — Codex marketplace manifest
-skills/<name>/SKILL.md               — generalized skill source
-plugins/<name>/
-  .claude-plugin/plugin.json         — Claude Code plugin manifest
-  .codex-plugin/plugin.json          — Codex plugin manifest
-  skills/<name>/SKILL.md             — packaged skill (copy of source)
-```
-
 ## Contributing
 
-This repo is for personal use, but pull requests that improve or generalize existing skills are welcome. New skills should be general-purpose—nothing environment-specific.
+This repo is for personal use, but pull requests that improve or generalize existing skills are welcome. New skills should be general-purpose and not private or environment-specific.
 
 ## License
 
