@@ -38,6 +38,14 @@ codex plugin install kb-to-spec@ai-plugins
 
 Promote a private Markdown note into a shareable spec committed to a GitHub repo. It de-privatizes the content, writes a standalone spec with an Authors header, links back from the private note, and keeps the two files independent, with no duplicated content. Use it when publishing a plan as a shared design doc, committing notes into a project repo, or when you say "promote this to a spec", "turn this note into a repo spec", or "make this shareable".
 
+### js-perf-audit
+
+Audit any JS-heavy codebase for performance issues. It checks bundle weight, dependency hygiene, code splitting, rendering architecture, runtime re-render patterns, and performance infrastructure, then writes a findings report with severity ratings and prioritized recommendations. Use it when you want to assess or improve a JavaScript app's performance, or when you say "audit this codebase for performance", "check our bundle size", or "why is this app slow".
+
+### visual-screenshots
+
+Capture before/after screenshots for PRs with visual UI changes using Playwright. It reads the repo's dev-server setup, captures matched before/after shots at the right viewports, and can upload them straight into the PR comment as inline images (works on github.com and GitHub Enterprise). Use it when a PR changes CSS, components, layouts, or themes, or when you say "screenshot this change" or "add before/after screenshots to the PR". Requires the Playwright MCP server.
+
 ### claude-cleanup
 
 Audit and clean up your Claude Code configuration. It checks skills, hooks, settings, plugins, configs, commands, and stale data for broken references, outdated paths, version drift, and orphaned files, then fixes them interactively (or previews with `--dry-run`). Use it for periodic maintenance, after a folder reorganization, or when you say "clean up my Claude config" or "audit my skills and plugins".
