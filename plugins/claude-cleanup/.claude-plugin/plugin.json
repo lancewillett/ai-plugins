@@ -1,0 +1,10 @@
+{
+  "name": "claude-cleanup",
+  "description": "Audit and clean up Claude Code configuration. Checks skills, hooks, plugins, configs, commands, and stale data for issues and fixes them.",
+  "version": "1.0.0",
+  "author": {
+    "name": "Lance Willett"
+  },
+  "license": "MIT",
+  "skills": ["./skills/claude-cleanup"]
+}
