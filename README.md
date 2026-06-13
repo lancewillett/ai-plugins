@@ -42,6 +42,10 @@ Promote a private Markdown note into a shareable spec committed to a GitHub repo
 
 Audit any JS-heavy codebase for performance issues. It checks bundle weight, dependency hygiene, code splitting, rendering architecture, runtime re-render patterns, and performance infrastructure, then writes a findings report with severity ratings and prioritized recommendations. Use it when you want to assess or improve a JavaScript app's performance, or when you say "audit this codebase for performance", "check our bundle size", or "why is this app slow".
 
+### visual-screenshots
+
+Capture before/after screenshots for PRs with visual UI changes using Playwright. It reads the repo's dev-server setup, captures matched before/after shots at the right viewports, and can upload them straight into the PR comment as inline images (works on github.com and GitHub Enterprise). Use it when a PR changes CSS, components, layouts, or themes, or when you say "screenshot this change" or "add before/after screenshots to the PR". Requires the Playwright MCP server.
+
 ## Contributing
 
 This repo is for personal use, but pull requests that improve or generalize existing skills are welcome. New skills should be general-purpose and not private or environment-specific.
