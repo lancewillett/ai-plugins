@@ -118,6 +118,31 @@ Use this path when:
 
 Do not use this path to bypass login. If the profile lands on the GitHub login page, stop and ask the user to log in through a controlled browser session. Never read cookie values or copy cookies between profiles.
 
+How it works:
+
+- Playwright's `launchPersistentContext(profileDir, ...)` launches Chrome with a real user data directory instead of an empty incognito-style context.
+- Chrome stores browser session state in that user data directory: cookies, local storage, session storage, cache, preferences, and other profile data.
+- If the user previously logged in to GitHub in that controlled browser profile, headless Chrome can reuse the same browser session later.
+- The upload still goes through GitHub's normal web UI. Playwright only automates the file input in the comment composer.
+- `gh` is not used for image upload. It is useful after upload to post a clean Markdown comment that references the collected asset URLs.
+- `.gitconfig` and Git credential helpers are not used by Chrome for this browser session. They only affect Git and `gh`.
+- Browser proxy settings are separate from Git proxy settings. If the GitHub host needs a proxy, pass it to Chrome explicitly, for example with `--proxy-server=...`.
+
+How a profile becomes useful:
+
+1. The agent opens a controlled browser with a persistent profile.
+2. The user logs in to the GitHub host once in that browser.
+3. Chrome saves the web session in the profile directory.
+4. Later headless runs point `PLAYWRIGHT_PROFILE_DIR` at the same profile.
+5. If GitHub shows the PR comment box, the session is still valid. If it redirects to login, the profile is not ready.
+
+Safe checks:
+
+- Check whether the PR page has `#new_comment_field` before uploading.
+- It is safe to inspect cookie host names or counts to find likely profiles.
+- Never print cookie values, session tokens, local storage values, or credential files.
+- Do not copy profile directories as an auth workaround. Browser auth can depend on operating-system and browser storage details, and copied profiles may fail or leak sensitive state.
+
 Minimal Node pattern:
 
 ```js
