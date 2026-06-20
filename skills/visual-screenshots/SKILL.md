@@ -106,6 +106,140 @@ Post the screenshots straight into a PR comment as inline images, instead of ask
 
 **Fragility note:** this depends on GitHub's current composer DOM (the `<file-attachment>` custom element). If GitHub restructures the comment box, the selector in step 2 may need updating — it's the one brittle part of this flow.
 
+#### Headless Playwright upload
+
+When screenshots already exist on disk, a coding agent can upload them without opening a visible browser. This uses the same GitHub composer upload flow as above, but drives it through a persistent, authenticated Playwright profile in headless Chrome.
+
+Use this path when:
+
+- The user wants canonical GitHub `user-attachments/assets/` URLs.
+- A Playwright-managed browser profile is already logged in to the PR's GitHub host.
+- The screenshots are already generated and verified at 2x/device scale.
+
+Do not use this path to bypass login. If the profile lands on the GitHub login page, stop and ask the user to log in through a controlled browser session. Never read cookie values or copy cookies between profiles.
+
+How it works:
+
+- Playwright's `launchPersistentContext(profileDir, ...)` launches Chrome with a real user data directory instead of an empty incognito-style context.
+- Chrome stores browser session state in that user data directory: cookies, local storage, session storage, cache, preferences, and other profile data.
+- If the user previously logged in to GitHub in that controlled browser profile, headless Chrome can reuse the same browser session later.
+- The upload still goes through GitHub's normal web UI. Playwright only automates the file input in the comment composer.
+- `gh` is not used for image upload. It is useful after upload to post a clean Markdown comment that references the collected asset URLs.
+- `.gitconfig` and Git credential helpers are not used by Chrome for this browser session. They only affect Git and `gh`.
+- Browser proxy settings are separate from Git proxy settings. If the GitHub host needs a proxy, pass it to Chrome explicitly, for example with `--proxy-server=...`.
+
+How a profile becomes useful:
+
+1. The agent opens a controlled browser with a persistent profile.
+2. The user logs in to the GitHub host once in that browser.
+3. Chrome saves the web session in the profile directory.
+4. Later headless runs point `PLAYWRIGHT_PROFILE_DIR` at the same profile.
+5. If GitHub shows the PR comment box, the session is still valid. If it redirects to login, the profile is not ready.
+
+Safe checks:
+
+- Check whether the PR page has `#new_comment_field` before uploading.
+- It is safe to inspect cookie host names or counts to find likely profiles.
+- Never print cookie values, session tokens, local storage values, or credential files.
+- Do not copy profile directories as an auth workaround. Browser auth can depend on operating-system and browser storage details, and copied profiles may fail or leak sensitive state.
+
+Minimal Node pattern:
+
+```js
+const { chromium } = require("playwright");
+const fs = require("node:fs");
+
+const prUrl = process.env.GITHUB_PR_URL;
+const profileDir = process.env.PLAYWRIGHT_PROFILE_DIR;
+const screenshots = process.argv.slice(2);
+
+if (!prUrl || !profileDir || screenshots.length === 0) {
+  throw new Error(
+    "Usage: GITHUB_PR_URL=<url> PLAYWRIGHT_PROFILE_DIR=<dir> node upload.js screenshots/*.png"
+  );
+}
+
+(async () => {
+  const context = await chromium.launchPersistentContext(profileDir, {
+    headless: true,
+    channel: "chrome",
+    args: process.env.HTTPS_PROXY
+      ? [`--proxy-server=${process.env.HTTPS_PROXY}`]
+      : [],
+  });
+  const page = context.pages()[0] || await context.newPage();
+
+  await page.goto(prUrl, {
+    waitUntil: "domcontentloaded",
+    timeout: 45_000,
+  });
+
+  const textarea = page.locator("#new_comment_field");
+  if ((await textarea.count()) === 0) {
+    throw new Error(
+      `GitHub comment box not found. Current URL: ${page.url()}`
+    );
+  }
+
+  await textarea.scrollIntoViewIfNeeded();
+  await textarea.fill("");
+
+  const input = page
+    .locator('form:has(#new_comment_field) file-attachment input[type=file]')
+    .first();
+  await input.waitFor({ state: "attached", timeout: 30_000 });
+
+  const urls = [];
+  for (const screenshot of screenshots) {
+    if (!fs.existsSync(screenshot)) {
+      throw new Error(`Missing screenshot: ${screenshot}`);
+    }
+
+    const previousValue = await textarea.inputValue();
+    await input.setInputFiles(screenshot);
+
+    await page.waitForFunction(
+      (oldValue) => {
+        const value =
+          document.querySelector("#new_comment_field")?.value || "";
+        return (
+          value !== oldValue &&
+          value.includes("user-attachments/assets/") &&
+          !value.includes("Uploading")
+        );
+      },
+      previousValue,
+      { timeout: 60_000 }
+    );
+
+    const value = await textarea.inputValue();
+    const matches = [
+      ...value.matchAll(
+        /https:\/\/[^)\s"]+\/user-attachments\/assets\/[0-9a-f-]+/g
+      ),
+    ].map((match) => match[0]);
+
+    for (const url of matches) {
+      if (!urls.includes(url)) {
+        urls.push(url);
+      }
+    }
+  }
+
+  await textarea.fill("");
+  await context.close();
+  console.log(JSON.stringify({ urls }, null, 2));
+})();
+```
+
+Then post a clean PR comment with the collected URLs:
+
+```bash
+gh pr comment "$PR_NUMBER" --body-file visual-verification.md
+```
+
+The uploaded assets survive clearing the draft textarea because GitHub stores them when the file input upload completes.
+
 ## Screenshot directory
 
 Save all screenshots to `./screenshots/` in the repo root. Create the directory if it doesn't exist. This directory should be in `.gitignore` — if it isn't, don't commit the screenshots.
