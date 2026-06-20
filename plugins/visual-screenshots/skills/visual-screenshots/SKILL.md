@@ -2,7 +2,7 @@
 name: visual-screenshots
 description: Capture before/after screenshots for PRs with visual UI changes using Playwright.
 argument-hint: "[PR URL or branch]"
-allowed-tools: Read, Write, Edit, Bash, Glob, Grep, mcp__playwright__browser_navigate, mcp__playwright__browser_take_screenshot, mcp__playwright__browser_snapshot, mcp__playwright__browser_click, mcp__playwright__browser_type, mcp__playwright__browser_wait_for, mcp__playwright__browser_close, mcp__playwright__browser_resize, mcp__playwright__browser_evaluate, mcp__playwright__browser_file_upload
+allowed-tools: Read, Write, Edit, Bash, Glob, Grep, mcp__playwright__browser_navigate, mcp__playwright__browser_take_screenshot, mcp__playwright__browser_snapshot, mcp__playwright__browser_click, mcp__playwright__browser_type, mcp__playwright__browser_wait_for, mcp__playwright__browser_close, mcp__playwright__browser_resize, mcp__playwright__browser_evaluate, mcp__playwright__browser_run_code_unsafe, mcp__playwright__browser_file_upload
 ---
 
 # Visual screenshots
@@ -102,6 +102,8 @@ Post the screenshots straight into a PR comment as inline images, instead of ask
    | Front page | <img width="450" src="…/assets/AAA"> | <img width="450" src="…/assets/BBB"> |
    ```
 
+   If submitting through the browser UI, click the exact `Comment` button. A broad text match for `Comment` can also match secondary actions such as `Close with comment`.
+
 **Fragility note:** this depends on GitHub's current composer DOM (the `<file-attachment>` custom element). If GitHub restructures the comment box, the selector in step 2 may need updating — it's the one brittle part of this flow.
 
 ## Screenshot directory
@@ -145,6 +147,37 @@ How to apply it:
 - Do not fake 2x quality by changing the CSS viewport if that would trigger a different responsive layout.
 - If the available browser tool cannot set device scale, capture the most readable PNG it can produce and state the limitation in the summary.
 - For custom composite images, generate the source screenshots at 2x first; do not upscale a fuzzy 1x screenshot afterward.
+
+### Troubleshooting 2x captures
+
+Verify the saved image dimensions, not just the browser setting. A 1280x800 viewport captured at 2x should produce a 2560x1600 PNG. Use `sips`, `identify`, or another image metadata tool to confirm the pixel size before uploading evidence.
+
+If the browser reports `devicePixelRatio: 2` but the saved PNG is still 1x, prefer Chrome DevTools Protocol capture from the live authenticated Playwright page when the environment exposes a Playwright code runner. This keeps the logged-in browser session intact and avoids profile-copying problems where authentication can fail even when cookies are present.
+
+```js
+const client = await page.context().newCDPSession(page);
+
+await page.setViewportSize({ width: 1280, height: 800 });
+await client.send( 'Emulation.setDeviceMetricsOverride', {
+	width: 1280,
+	height: 800,
+	deviceScaleFactor: 2,
+	mobile: false,
+} );
+
+const capture = await client.send( 'Page.captureScreenshot', {
+	format: 'png',
+	fromSurface: true,
+	captureBeyondViewport: false,
+	clip: { x: 0, y: 0, width: 1280, height: 800, scale: 1 },
+} );
+```
+
+Use `deviceScaleFactor: 2` with `clip.scale: 1`. Combining DPR 2 with `clip.scale: 2` creates a 4x image. If the code runner cannot write files directly, save the returned base64 data through the browser download flow or another local helper; do not paste base64 into PR comments.
+
+Avoid copying browser profiles as an authentication workaround. Browser-level auth can be tied to the live process, so copied profiles may fail with credential errors. Use the existing controlled browser session, or ask the user to finish login in that controlled browser and then continue.
+
+Avoid OS-level screenshot tools as the first fallback. They can hit screen-recording permissions, capture the wrong window, or include unrelated desktop state. Use them only when browser-native capture is unavailable, and state the limitation.
 
 ## Tips
 
