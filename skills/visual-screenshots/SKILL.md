@@ -86,14 +86,23 @@ Post the screenshots straight into a PR comment as inline images, instead of ask
 **Steps:**
 
 1. `browser_navigate` to the PR (`https://<host>/<owner>/<repo>/pull/<n>`). Confirm you landed on the PR (not a login page) before continuing.
-2. For each screenshot, upload it onto the comment form's attachment input with `browser_file_upload`, targeting:
+2. Upload the screenshots onto the comment composer. GitHub currently ships two composer generations — detect which one the page has:
+
+   **Legacy composer** (has `#new_comment_field` — classic PR pages, GitHub Enterprise): upload each file with `browser_file_upload`, targeting:
 
    ```
    form:has(#new_comment_field) file-attachment input[type=file]
    ```
 
    Use this exact selector — a bare `input[type=file]` matches a different, hidden input that is not wired to the comment box, and the upload silently does nothing.
-3. After each upload, read the comment field with `browser_evaluate` (`document.querySelector('#new_comment_field').value`). GitHub first inserts `![Uploading <name>…]()`, then swaps in the final reference, e.g. `<img … src="https://<host>/user-attachments/assets/<uuid>" />`. Poll until a `user-attachments/assets/` URL appears that no longer says `Uploading`, and collect it.
+
+   **React composer** (no `#new_comment_field` — the new Issues UI, rolling out to PRs): there is **no** `file-attachment` element and no file input in the DOM at all until the chooser opens. Instead:
+   1. Click into the composer textarea: `textarea[placeholder="Use Markdown to format your comment"]`.
+   2. Click the toolbar button whose text starts with "Add Files" (`button:has-text("Add Files")` — full label "Add Files: Paste, drop, or click"). This opens a native file chooser.
+   3. Answer the pending file chooser with `browser_file_upload`. Multi-select works — pass all screenshot paths in one call.
+3. After each upload, read the comment field with `browser_evaluate` — `document.querySelector('#new_comment_field').value` on the legacy composer, or the React composer textarea's `.value`. GitHub first inserts `![Uploading <name>…]()`, then swaps in the final reference, e.g. `<img … src="https://<host>/user-attachments/assets/<uuid>" />`. Poll until a `user-attachments/assets/` URL appears that no longer says `Uploading`, and collect it.
+
+   Each placeholder is replaced in place, so asset URLs keep the order the files were passed in. If several screenshots share the same pixel dimensions, verify the mapping before composing: navigating to an asset URL in the logged-in browser redirects to a short-lived signed S3 URL, which can be fetched with `curl` and hash-compared (`shasum -a 256`) against the local file. Anonymous requests to the `user-attachments` URL itself return a login page, not the image.
 4. Compose a before/after comment from the captured URLs and post it — either submit the comment box, or clear the draft and post a clean comment with `gh pr comment` (the assets are already stored the moment the input fires, so they survive clearing the textarea):
 
    ```markdown
@@ -104,7 +113,7 @@ Post the screenshots straight into a PR comment as inline images, instead of ask
 
    If submitting through the browser UI, click the exact `Comment` button. A broad text match for `Comment` can also match secondary actions such as `Close with comment`.
 
-**Fragility note:** this depends on GitHub's current composer DOM (the `<file-attachment>` custom element). If GitHub restructures the comment box, the selector in step 2 may need updating — it's the one brittle part of this flow.
+**Fragility note:** this depends on GitHub's current composer DOM. The legacy path relies on the `<file-attachment>` custom element; the React path relies on the "Add Files" toolbar button label. GitHub restructures these periodically (the React Issues composer shipped without any file input, breaking the original selector in July 2026) — if neither variant matches, re-inspect the composer rather than assuming upload is impossible.
 
 #### Headless Playwright upload
 
@@ -136,9 +145,11 @@ How a profile becomes useful:
 4. Later headless runs point `PLAYWRIGHT_PROFILE_DIR` at the same profile.
 5. If GitHub shows the PR comment box, the session is still valid. If it redirects to login, the profile is not ready.
 
+The minimal pattern below targets the legacy composer. On the React composer (no `#new_comment_field`), adapt it: locate `textarea[placeholder="Use Markdown to format your comment"]`, click the "Add Files" toolbar button, and handle the chooser with `page.waitForEvent("filechooser")` + `fileChooser.setFiles([...])` — the polling and URL-collection logic stays the same against that textarea's value.
+
 Safe checks:
 
-- Check whether the PR page has `#new_comment_field` before uploading.
+- Check whether the PR page has `#new_comment_field` (legacy) or the "Add Files" toolbar button (React) before uploading.
 - It is safe to inspect cookie host names or counts to find likely profiles.
 - Never print cookie values, session tokens, local storage values, or credential files.
 - Do not copy profile directories as an auth workaround. Browser auth can depend on operating-system and browser storage details, and copied profiles may fail or leak sensitive state.
@@ -330,4 +341,4 @@ Avoid OS-level screenshot tools as the first fallback. They can hit screen-recor
 | Auth required | Prompt user to log in manually, then retry |
 | Screenshot is blank/loading | Use `browser_wait_for` with longer timeout, retry |
 | Browser not installed | Run `browser_install` to set up Playwright |
-| PR upload does nothing / no asset URL | Confirm the browser is logged in to the PR's host; check the Step 6 selector targets the comment-box `file-attachment input` |
+| PR upload does nothing / no asset URL | Confirm the browser is logged in to the PR's host; check which composer the page has (legacy `file-attachment input` vs React "Add Files" button) and use the matching Step 6 path |
