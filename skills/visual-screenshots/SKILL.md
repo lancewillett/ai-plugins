@@ -77,7 +77,38 @@ Then offer to add them to the PR: run **Step 6** to upload them automatically, o
 
 ### Step 6 (optional): Upload screenshots to the PR automatically
 
-Post the screenshots straight into a PR comment as inline images, instead of asking the user to drag and drop. This drives GitHub's own comment-box uploader, so it produces canonical `…/user-attachments/assets/<uuid>` URLs and works the same on **github.com** and **GitHub Enterprise** (the asset URL host mirrors the PR's host).
+Post the screenshots straight into the PR as inline images, instead of asking the user to drag and drop. There are two ways — prefer the first.
+
+#### Primary: `gh agent-screenshot` (CLI, no browser)
+
+The [`gh-agent-screenshot`](https://github.com/mgiovani/gh-agent-screenshot) CLI extension uploads a local PNG using only your existing `gh` authentication — no logged-in browser, no web session, no Personal Access Token. It works the same on **github.com** and **GitHub Enterprise**. Use this whenever `gh` is authenticated for the PR's host, which is the common coding-agent case.
+
+Install once:
+
+```bash
+gh extension install mgiovani/gh-agent-screenshot
+```
+
+Upload as a new PR comment (default — avoids concurrent edits to a detailed PR body):
+
+```bash
+gh agent-screenshot upload screenshots/after-{slug}.png \
+  --repo OWNER/REPO --pr <n> --new-comment
+```
+
+Other modes: `--edit-body` appends to the PR description; `--print-only` returns the image Markdown without posting. Add a before/after caption by patching the created comment:
+
+```bash
+gh api -X PATCH repos/OWNER/REPO/issues/comments/COMMENT_ID -F body=@comment.md
+```
+
+How it works: the extension commits the image as a Git blob on a dedicated `refs/uploads/pr/<n>` ref and builds a SHA-pinned raw image URL. It does **not** change the PR branch, default branch, or working tree. It does leave upload refs behind — preview and prune them with `gh agent-screenshot prune --repo OWNER/REPO --dry-run`, deleting only after review.
+
+**Classify the image against repo visibility before uploading.** Public repo: use mocked or already-public data only. Private/internal repo: still strip secrets, credentials, customer data, and unrelated internal details. Never attach real internal search results or other confidential UI to a public PR. Do not print `download_url` — for private repos GitHub can embed a short-lived token in it.
+
+#### Fallback: drive GitHub's comment-box uploader (browser)
+
+Use this only when you specifically need GitHub's **native attachment storage** — `…/user-attachments/assets/<uuid>` URLs stored outside the repo, with no leftover upload refs — or when the CLI extension is unavailable. It drives GitHub's own comment-box uploader, produces canonical asset URLs, and works the same on **github.com** and **GitHub Enterprise** (the asset URL host mirrors the PR's host).
 
 **Requirements:**
 - A browser session **logged in to the PR's GitHub host**. If it isn't, the page redirects to login — ask the user to log in in the browser, then continue. On Enterprise hosts with 2FA/SSO this is a one-time step; use a persistent browser profile so the session is reused.
@@ -269,7 +300,7 @@ Some dev environments require login. Check the repo's CLAUDE.md for auth details
 
 If auth fails, tell the user and suggest they log in manually in the browser first.
 
-**Uploading to a PR (Step 6)** needs a browser logged in to the *GitHub host* of the PR (github.com or your Enterprise host) — separate from dev-server auth. Use a persistent browser profile so an Enterprise 2FA/SSO login is a one-time step, and never rely on a Personal Access Token for the image upload (the endpoint rejects it).
+**Uploading to a PR (Step 6):** the primary path (`gh agent-screenshot`) needs only `gh` authenticated for the PR's host — no browser. Only the browser *fallback* needs a session logged in to the *GitHub host* of the PR (github.com or your Enterprise host), separate from dev-server auth; there, use a persistent browser profile so an Enterprise 2FA/SSO login is a one-time step, and never rely on a Personal Access Token for the image upload (the endpoint rejects it).
 
 ## Viewport sizes
 
@@ -341,4 +372,4 @@ Avoid OS-level screenshot tools as the first fallback. They can hit screen-recor
 | Auth required | Prompt user to log in manually, then retry |
 | Screenshot is blank/loading | Use `browser_wait_for` with longer timeout, retry |
 | Browser not installed | Run `browser_install` to set up Playwright |
-| PR upload does nothing / no asset URL | Confirm the browser is logged in to the PR's host; check which composer the page has (legacy `file-attachment input` vs React "Add Files" button) and use the matching Step 6 path |
+| PR upload does nothing / no asset URL | First try the CLI path (`gh agent-screenshot upload … --new-comment`) — it avoids the browser entirely. If using the browser fallback, confirm it is logged in to the PR's host and check which composer the page has (legacy `file-attachment input` vs React "Add Files" button), then use the matching Step 6 path |
