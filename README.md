@@ -50,6 +50,10 @@ Capture before/after screenshots for PRs with visual UI changes using Playwright
 
 Audit and clean up your Claude Code configuration. It checks skills, hooks, settings, plugins, configs, commands, and stale data for broken references, outdated paths, version drift, and orphaned files, then fixes them interactively (or previews with `--dry-run`). Use it for periodic maintenance, after a folder reorganization, or when you say "clean up my Claude config" or "audit my skills and plugins".
 
+### playwright-ui-check
+
+Verify a login-gated UI loads and behaves correctly — to validate product changes fast — by logging in once and attaching a headless browser over the Chrome DevTools Protocol for every check after. It documents the auth-once session model, a reference Playwright runner (start a session, attach and drive, 2x screenshots, scoped teardown), and the collision and auth-capture pitfalls that waste the most time. Use it when a page needs a login your script can't drive and you'll check it more than once, or when you say "check this authed UI with Playwright" or "set up a reusable headless browser session".
+
 ## Contributing
 
 This repo is for personal use, but pull requests that improve or generalize existing skills are welcome. New skills should be general-purpose and not private or environment-specific.
