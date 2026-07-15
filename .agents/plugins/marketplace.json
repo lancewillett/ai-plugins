@@ -49,15 +49,15 @@
       "skills": "./skills/claude-cleanup"
     },
     {
-      "name": "authed-browser-runner",
-      "description": "Run repeatable headless-browser checks against a site behind a login wall - HTTP Basic Auth, SSO, or a session cookie - by authenticating once and attaching over the Chrome DevTools Protocol for every run after. Includes the auth-once session model, a reference Playwright runner, and the collision and auth-capture pitfalls that waste the most time.",
-      "source": "./plugins/authed-browser-runner",
+      "name": "playwright-ui-check",
+      "description": "Verify a login-gated UI loads and behaves correctly - to validate product changes fast - by logging in once in a visible browser, then attaching a headless browser over the Chrome DevTools Protocol for every check after. Includes the auth-once session model, a reference Playwright runner, and the collision and auth-capture pitfalls that waste the most time.",
+      "source": "./plugins/playwright-ui-check",
       "version": "1.0.0",
       "author": {
         "name": "Lance Willett"
       },
       "license": "MIT",
-      "skills": "./skills/authed-browser-runner"
+      "skills": "./skills/playwright-ui-check"
     }
   ]
 }

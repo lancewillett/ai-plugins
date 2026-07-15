@@ -1,0 +1,10 @@
+{
+  "name": "playwright-ui-check",
+  "description": "Verify a login-gated UI loads and behaves correctly - to validate product changes fast - by logging in once in a visible browser, then attaching a headless browser over the Chrome DevTools Protocol for every check after. Includes the auth-once session model, a reference Playwright runner, and the collision and auth-capture pitfalls that waste the most time.",
+  "version": "1.0.0",
+  "author": {
+    "name": "Lance Willett"
+  },
+  "license": "MIT",
+  "skills": ["./skills/playwright-ui-check"]
+}

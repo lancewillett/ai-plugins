@@ -1,11 +1,11 @@
 ---
-name: authed-browser-runner
-description: Run repeatable headless-browser checks against a site behind a login wall (HTTP Basic Auth, SSO, or session cookie) by authenticating once and attaching over CDP for every run after. Covers the auth-once session model, a reference Playwright runner, 2x screenshots, and the collision and auth-capture gotchas that waste the most time. Use it when a page needs a login your script can't drive and you'll check it more than once.
+name: playwright-ui-check
+description: Verify a login-gated UI loads and behaves correctly, to validate product changes fast, by logging in once and attaching a headless browser over CDP for every check after. Covers the auth-once session model, a reference Playwright runner, 2x screenshots, and the collision and auth-capture gotchas that waste the most time. Use it when a page needs a login your script can't drive and you'll check it more than once.
 argument-hint: "[target URL]"
 allowed-tools: Read, Write, Edit, Bash, Glob, Grep
 ---
 
-# Authed browser runner
+# Playwright UI check
 
 Drive a real browser against a site behind a login wall — HTTP Basic Auth, an SSO gateway, or a session cookie — and run repeatable checks (UI smoke tests, keyboard and click flows, screenshots, DOM assertions) **without logging in again on every run**.
 
@@ -37,7 +37,7 @@ Browser auth is held **in the running browser process**, not on disk. HTTP Basic
 
 Run a helper that opens one visible window for the login, then keeps a headless browser alive on a CDP port. There are two auth shapes:
 
-**Cookie / SSO auth** — the session is stored in the profile, so a persistent profile is enough: launch headed with `launchPersistentContext(profileDir)`, log in once, then reuse that same profile directory headless. This is the simple case.
+**Cookie / SSO auth** — the session is stored in the profile, so a persistent profile is enough: launch headed with `launchPersistentContext(profileDir)`, log in once, then reuse that same profile directory headless. This is the simple case — it relaunches per run and needs no CDP port, so the attach and teardown machinery below applies mainly to the Basic Auth long-lived-session path.
 
 **HTTP Basic Auth** — the credentials live in memory, not the profile, so a saved profile won't carry them. Capture them from the live login and hold them in the running process instead:
 
@@ -107,11 +107,9 @@ The captured username/password stay inside this process's memory — never writt
 
 Keep the helper in a dedicated terminal or supervised terminal-multiplexer session. Short-lived agent command runners may send it `SIGTERM` as soon as their command session ends, even after it printed "ready." Record the helper PID and CDP port so teardown can target both the parent helper and its Chrome child.
 
-### 1a. Pin the target before testing
+#### Pin the target build before and after long runs
 
-Authentication proves access, not that the intended build is loaded. Record the expected branch, commit, build identifier, or deployment version and verify it immediately before the first probe and again after long runs. Development sync processes can switch a checkout back to its default branch while tests are running.
-
-If the environment has a routing marker for sandbox versus production, assert it before API or UI checks. Treat every result as invalid when either the code version or routing target drifted.
+Authentication proves access, not that the intended build is loaded. Record the expected branch, commit, or build identifier and re-verify it immediately before the first probe and again after long runs — sync or deploy processes can silently swap the checkout mid-test. Treat every result as invalid if the code version (or a sandbox-versus-production routing marker, where one exists) drifted.
 
 ### 2. Attach and drive
 
@@ -180,7 +178,7 @@ curl -s http://127.0.0.1:9333/json/version >/dev/null && echo "still up" || echo
 ps -p <helper-pid> >/dev/null && echo "helper still up" || echo "helper clear"
 ```
 
-Signal the helper first so its cleanup handlers can close Chrome. A terminal-multiplexer session can disappear while its child helper remains alive, so verify the PID and port separately. Scope every fallback kill to your port or URL. Never `pkill` the helper by script name alone if anyone else might be running a session.
+Signal the helper first so its cleanup handlers can close Chrome, then verify the PID and port separately. Scope every fallback kill to your port or URL — never `pkill` the helper by script name alone if anyone else might be running a session.
 
 ## Troubleshooting
 
@@ -196,7 +194,7 @@ These are the failures that eat the most time; most trace back to profile or por
 | The session dies during cleanup | An unscoped `pkill`, or `browser.close()` on a CDP attach, tore down a shared browser. | Close only your page; scope kills to your port/URL. |
 | A modal "won't close" in your assertions | You checked DOM **presence**; many modals stay mounted and just hide. | Check real visibility (`el.offsetParent !== null && getComputedStyle(el).display !== 'none'`), not element existence. |
 | Script hangs at the end | `page.close()` on a CDP-attached page can block. | End with `process.exit(0)`. macOS has no `timeout` to wrap it. |
-| Helper waits forever after login | It's blocking on an app-specific selector that never appears on your page. | Don't gate readiness on app UI; wait for the CDP endpoint or a generic load signal. |
+| A repo's own helper never reports ready | It gates readiness on an app-specific selector (app UI) your page doesn't render. | Don't gate on app UI; wait for a generic load signal or the CDP endpoint becoming reachable. |
 | Helper printed "ready" and then vanished | The agent's command session ended and terminated its child process. | Run the helper in a dedicated persistent terminal; verify its PID and CDP endpoint before every smoke run. |
 | The page shows the default build instead of the PR | A deployment or sync process changed the target checkout during testing. | Pin and re-check the branch, commit, or build identifier before and after probes. |
 | A late API response looks like invalid JSON | The script navigated away before asynchronous response validation finished. | Wait for app settlement and await all response-check promises before navigation. |
@@ -205,15 +203,14 @@ These are the failures that eat the most time; most trace back to profile or por
 
 ## What not to do
 
-- Don't relaunch fresh browser profiles for every check — that re-prompts for auth and wastes the human's time.
 - Don't run follow-up checks in the visible login window — it's a short bootstrap that closes once auth is captured.
 - Don't copy browser profiles or cookies between runs as an auth workaround; browser auth can be tied to the live process, and copies fail or leak state.
 - Don't `browser.close()` on a CDP attach, and don't `pkill` the helper unscoped — either can kill a session someone else is using.
-- Don't treat the first heading, result row, or `domcontentloaded` as proof that a multi-request page finished. Wait for its real completion state.
-- Don't trust a long test run without re-checking the target version and sandbox/production routing.
 
 ## Security
 
 - **Never read, print, store, or commit credential or cookie values.** Capture the login through a real browser prompt and keep any derived credentials in process memory only. Inspecting cookie *host names* or counts is fine; values are not.
+- **Don't embed credentials in the target URL** (`https://user:pass@host/`). A failed `goto` can surface the URL in an error, and `console.error(e.message)` would then print the secret — the one path in these scripts that could leak one.
+- **Don't enable Playwright tracing, HAR recording, or video** on the credentialed context. They persist request headers (including `Authorization: Basic …`) to disk, breaking the in-memory-only guarantee.
 - Prefer manual browser login over feeding secrets to a script. If a workflow seems to need a pasted secret, stop and find a reference (an env-var name, a secret-store key) instead.
 - When saving screenshots or DOM as evidence, classify it against where it will be shared: never attach authenticated, non-public content to a public destination.
