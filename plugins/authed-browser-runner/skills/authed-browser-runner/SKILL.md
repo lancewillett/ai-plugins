@@ -29,6 +29,7 @@ Browser auth is held **in the running browser process**, not on disk. HTTP Basic
 - Node.js and Playwright available (`npm i -D playwright`, or reuse an existing install and `require()` it by absolute path if your script lives outside that install).
 - Chrome or Chromium.
 - Pick an **unused** CDP port per session (e.g. `9333`) and a **fresh, unique** profile directory per session. Both matter — see [Troubleshooting](#troubleshooting).
+- Prefer an existing repository helper when one exists. It usually encodes the site's login and readiness behavior better than a new generic script.
 
 ## Workflow
 
@@ -49,6 +50,18 @@ const arg = (n, d) => { const i = process.argv.indexOf(n); return i > -1 ? proce
 const url = arg('--url');
 const cdpPort = Number(arg('--cdp-port', '9333'));
 const origin = new URL(url).origin;
+let bootstrap;
+let browser;
+let context;
+
+const shutdown = async (code = 0) => {
+  await context?.close().catch(() => {});
+  await browser?.close().catch(() => {});
+  await bootstrap?.close().catch(() => {});
+  process.exit(code);
+};
+process.on('SIGINT', () => void shutdown(0));
+process.on('SIGTERM', () => void shutdown(0));
 
 const waitFor = async (cond, ms, msg) => {
   const end = Date.now() + ms;
@@ -58,12 +71,12 @@ const waitFor = async (cond, ms, msg) => {
 
 (async () => {
   // (a) Visible bootstrap: a human completes the login; observe the Basic Auth header.
-  const bootstrap = await chromium.launch({ headless: false });
+  bootstrap = await chromium.launch({ headless: false });
   const bpage = await (await bootstrap.newContext()).newPage();
   let captured = null;
   bpage.on('request', req => {
     const h = req.headers()['authorization'];
-    if (h && h.startsWith('Basic ') && req.url().startsWith(origin)) captured = h;
+    if (h && h.startsWith('Basic ') && new URL(req.url()).origin === origin) captured = h;
   });
   console.log(`Log in to ${origin} in the window that just opened...`);
   await bpage.goto(url, { waitUntil: 'domcontentloaded', timeout: 0 }).catch(() => {});
@@ -72,17 +85,29 @@ const waitFor = async (cond, ms, msg) => {
   await bootstrap.close();
 
   // (b) Headless long-lived session that reuses the captured credentials, on a CDP port.
-  const [u, p] = Buffer.from(captured.split(' ')[1], 'base64').toString().split(':');
-  const browser = await chromium.launch({ headless: true, args: [`--remote-debugging-port=${cdpPort}`] });
-  const context = await browser.newContext({ httpCredentials: { username: u, password: p } });
+  const decoded = Buffer.from(captured.split(' ')[1], 'base64').toString();
+  const separator = decoded.indexOf(':');
+  if (separator < 0) throw new Error('Malformed Basic Auth credentials.');
+  const u = decoded.slice(0, separator);
+  const p = decoded.slice(separator + 1); // passwords may contain colons
+  browser = await chromium.launch({ headless: true, args: [`--remote-debugging-port=${cdpPort}`] });
+  context = await browser.newContext({ httpCredentials: { username: u, password: p } });
   const page = await context.newPage();
   await page.goto(url, { waitUntil: 'domcontentloaded' }); // prime the origin's in-memory auth cache
-  console.log(`Session ready on http://127.0.0.1:${cdpPort} - leave this process running.`);
+  console.log(`Session ready on http://127.0.0.1:${cdpPort}; helper PID ${process.pid} - leave this process running.`);
   await new Promise(() => {}); // stay alive until killed
-})().catch(e => { console.error(e.message); process.exit(1); });
+})().catch(async e => { console.error(e.message); await shutdown(1); });
 ```
 
-The captured username/password stay inside this process's memory — never written to disk, never printed. Give the human unlimited time to log in (`timeout: 0`), then poll `curl -s http://127.0.0.1:9333/json/version` for readiness before driving.
+The captured username/password stay inside this process's memory — never written to disk, never printed. The example allows five minutes for login; adjust that timeout when needed. Poll `curl -s http://127.0.0.1:9333/json/version` for readiness before driving.
+
+Keep the helper in a dedicated terminal or supervised terminal-multiplexer session. Short-lived agent command runners may send it `SIGTERM` as soon as their command session ends, even after it printed "ready." Record the helper PID and CDP port so teardown can target both the parent helper and its Chrome child.
+
+### 1a. Pin the target before testing
+
+Authentication proves access, not that the intended build is loaded. Record the expected branch, commit, build identifier, or deployment version and verify it immediately before the first probe and again after long runs. Development sync processes can switch a checkout back to its default branch while tests are running.
+
+If the environment has a routing marker for sandbox versus production, assert it before API or UI checks. Treat every result as invalid when either the code version or routing target drifted.
 
 ### 2. Attach and drive
 
@@ -118,9 +143,15 @@ const TARGET = 'https://app.example.com/';
 })().catch(e => { console.error(e.message); process.exit(1); });
 ```
 
+`domcontentloaded` means the page shell loaded; it does not mean every API request or streamed result settled. Wait for an app-specific completion signal before asserting counts, JSON validity, errors, or screenshots. Keep promises for asynchronous `response` checks and await them before navigating away; otherwise an intentional navigation can abort a late response and look like invalid JSON.
+
+Set explicit timeouts from the endpoint's observed latency; a search that normally takes 70 seconds needs at least a 120-second test timeout. For JSON endpoints, check the HTTP status and `content-type` before parsing. If parsing fails, report a short response prefix so an HTML error page is distinguishable from malformed JSON.
+
+For bounded aggregate or paginated views, test continuation too. A valid source result may be absent from the first batch and appear only after **More**, **Next**, or scrolling. Do not classify it as missing until the relevant continuation has settled.
+
 ### 3. Capture 2x screenshots (when you need sharp evidence)
 
-`page.screenshot()` is 1x, which goes fuzzy after any downstream scaling. For retina evidence, drive CDP directly:
+`page.screenshot()` uses the page's current device scale factor. A default CDP-attached context is commonly 1x, which goes fuzzy after downstream scaling. To force retina evidence on an existing attached page, drive CDP directly:
 
 ```js
 const client = await page.context().newCDPSession(page);
@@ -137,12 +168,15 @@ Use `deviceScaleFactor: 2` with `clip.scale: 1` — combining both gives a 4x im
 ### 4. Tear down — scoped to your own session
 
 ```bash
-pkill -f "remote-debugging-port=9333"      # your CDP port only
+kill <helper-pid>                           # graceful parent + browser shutdown
+sleep 2
+pkill -f "remote-debugging-port=9333"      # fallback: your CDP port only
 rm -rf /tmp/authed-session-*               # your profile dirs only
 curl -s http://127.0.0.1:9333/json/version >/dev/null && echo "still up" || echo "clear"
+ps -p <helper-pid> >/dev/null && echo "helper still up" || echo "helper clear"
 ```
 
-Scope every kill to your port or URL. Never `pkill` the helper by script name alone if anyone else might be running a session.
+Signal the helper first so its cleanup handlers can close Chrome. A terminal-multiplexer session can disappear while its child helper remains alive, so verify the PID and port separately. Scope every fallback kill to your port or URL. Never `pkill` the helper by script name alone if anyone else might be running a session.
 
 ## Troubleshooting
 
@@ -159,6 +193,11 @@ These are the failures that eat the most time; most trace back to profile or por
 | A modal "won't close" in your assertions | You checked DOM **presence**; many modals stay mounted and just hide. | Check real visibility (`el.offsetParent !== null && getComputedStyle(el).display !== 'none'`), not element existence. |
 | Script hangs at the end | `page.close()` on a CDP-attached page can block. | End with `process.exit(0)`. macOS has no `timeout` to wrap it. |
 | Helper waits forever after login | It's blocking on an app-specific selector that never appears on your page. | Don't gate readiness on app UI; wait for the CDP endpoint or a generic load signal. |
+| Helper printed "ready" and then vanished | The agent's command session ended and terminated its child process. | Run the helper in a dedicated persistent terminal; verify its PID and CDP endpoint before every smoke run. |
+| The page shows the default build instead of the PR | A deployment or sync process changed the target checkout during testing. | Pin and re-check the branch, commit, or build identifier before and after probes. |
+| A late API response looks like invalid JSON | The script navigated away before asynchronous response validation finished. | Wait for app settlement and await all response-check promises before navigation. |
+| Teardown says complete but the port still listens | The terminal session stopped while the helper or Chrome child survived. | Signal the recorded helper PID, then verify both the PID and CDP port are gone. |
+| The local browser cannot reach a development host | The machine driving Chrome lacks the required proxy, DNS, or hosts-file route. | Configure routing on the browser's machine. A proxy needed by the client does not belong on the target server. |
 
 ## What not to do
 
@@ -166,6 +205,8 @@ These are the failures that eat the most time; most trace back to profile or por
 - Don't run follow-up checks in the visible login window — it's a short bootstrap that closes once auth is captured.
 - Don't copy browser profiles or cookies between runs as an auth workaround; browser auth can be tied to the live process, and copies fail or leak state.
 - Don't `browser.close()` on a CDP attach, and don't `pkill` the helper unscoped — either can kill a session someone else is using.
+- Don't treat the first heading, result row, or `domcontentloaded` as proof that a multi-request page finished. Wait for its real completion state.
+- Don't trust a long test run without re-checking the target version and sandbox/production routing.
 
 ## Security
 
