@@ -5,7 +5,7 @@ description: Replace vague “flaky” or “flakiness” language with the narr
 
 # Flake to fact
 
-Read [the taxonomy](references/taxonomy.md) before classifying. Classify the failure, not the test or the people involved.
+Apply the core rules below. When file tools are available, read [the taxonomy](references/taxonomy.md) for detailed classifications and examples. Classify the failure, not the test or the people involved.
 
 ## Workflow
 
