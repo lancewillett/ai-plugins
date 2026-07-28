@@ -1,4 +1,0 @@
-interface:
-  display_name: "Classify test failures"
-  short_description: "Replace “flaky” with evidence-based labels"
-  default_prompt: "Use $classify-test-failures to label this test failure from the evidence."

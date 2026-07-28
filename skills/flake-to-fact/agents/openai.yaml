@@ -1,0 +1,4 @@
+interface:
+  display_name: "Flake to fact"
+  short_description: "Replace “flaky” with evidence-based labels"
+  default_prompt: "Use $flake-to-fact to label this test failure from the evidence."

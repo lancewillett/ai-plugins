@@ -1,9 +1,9 @@
 ---
-name: classify-test-failures
+name: flake-to-fact
 description: Replace vague “flaky” or “flakiness” language with the narrowest evidence-supported classification of a test, build, deployment, performance, security, or CI failure. Use when triaging an intermittent, recurring, or apparently nondeterministic failure; responding to a test alert; reviewing a failure report; or someone calls a test “flaky.”
 ---
 
-# Classify test failures
+# Flake to fact
 
 Read [the taxonomy](references/taxonomy.md) before classifying. Classify the failure, not the test or the people involved.
 
