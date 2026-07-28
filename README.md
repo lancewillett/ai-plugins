@@ -34,6 +34,10 @@ codex plugin install kb-to-spec@ai-plugins
 
 ## Skills
 
+### classify-test-failures
+
+Replace vague “flaky” or “flakiness” language with the narrowest evidence-supported label for a test, build, deployment, performance, security, or CI failure. It separates recurrence from cause, records confidence, and asks for a specific diagnostic when evidence is insufficient. Use it when triaging intermittent failures, responding to alerts, or writing failure reports.
+
 ### kb-to-spec
 
 Promote a private Markdown note into a shareable spec committed to a GitHub repo. It de-privatizes the content, writes a standalone spec with an Authors header, links back from the private note, and keeps the two files independent, with no duplicated content. Use it when publishing a plan as a shared design doc, committing notes into a project repo, or when you say "promote this to a spec", "turn this note into a repo spec", or "make this shareable".

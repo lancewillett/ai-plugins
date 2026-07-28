@@ -63,6 +63,17 @@
       },
       "license": "MIT",
       "skills": ["./skills/playwright-ui-check"]
+    },
+    {
+      "name": "classify-test-failures",
+      "description": "Replace vague flaky-test language with the narrowest evidence-supported classification for test, build, deployment, performance, security, and CI failures. Separates recurrence from cause, records confidence, and requests a specific diagnostic when evidence is insufficient.",
+      "source": "./plugins/classify-test-failures",
+      "version": "1.0.0",
+      "author": {
+        "name": "Lance Willett"
+      },
+      "license": "MIT",
+      "skills": ["./skills/classify-test-failures"]
     }
   ]
 }
