@@ -12,7 +12,7 @@ Use a label with a domain, mechanism, and scope when evidence permits. Add `Inte
 | Platform/runtime | CPU/memory; OS/library version; animation/GPU timing; clock/time-zone |
 | Build/deploy/config | Dependency resolution; artifact; deploy/restart; config drift |
 | Security/policy | Vulnerability/advisory gate; scanner finding; permission/policy rejection; secret-scanning match; integrity/signature failure |
-| Unknown | Use only when the available evidence cannot support a domain or mechanism |
+| Unclassified | Use only when the available evidence cannot support a domain or mechanism |
 
 Use Security/policy only when a security or policy mechanism causes the failure. A security test can expose a product, environment, dependency, CI, runtime, or configuration failure; classify that actual cause instead.
 

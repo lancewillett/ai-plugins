@@ -11,7 +11,7 @@ Apply the core rules below. When file tools are available, read [the taxonomy](r
 
 1. Capture observed facts first: the exact failing signature, failed step or assertion, relevant logs, execution context, and run history. Keep facts separate from inferences.
 2. Describe recurrence separately from cause. Use `intermittent` only when the same signature has both passed and failed in comparable runs. Omit it for a one-off failure, even when the mechanism is commonly intermittent or the source calls it flaky or nondeterministic. It is a modifier, never a root cause.
-3. Choose the narrowest supported domain, mechanism, and scope from the taxonomy. State all three in the label or expanded report. Name a mechanism only when evidence supports it.
+3. Choose the narrowest supported domain, mechanism, and scope from the taxonomy. State all three in the label or expanded report. For step 6's `Unclassified` fallback, use `Unclassified` instead of a domain and omit the mechanism rather than guessing.
 4. State confidence from the evidence:
    - **High:** direct error, trace, or reproduction identifies the mechanism.
    - **Medium:** several consistent signals identify the likely mechanism.
