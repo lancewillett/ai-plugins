@@ -1,0 +1,21 @@
+{
+  "name": "flake-to-fact",
+  "description": "Replace vague flaky-test language with the narrowest evidence-supported classification for test, build, deployment, performance, security, and CI failures. Separates recurrence from cause, records confidence, and requests a specific diagnostic when evidence is insufficient.",
+  "version": "1.0.0",
+  "author": {
+    "name": "Lance Willett"
+  },
+  "license": "MIT",
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "Flake to fact",
+    "shortDescription": "Tests are not flaky",
+    "longDescription": "Replace vague flaky-test language with the narrowest evidence-supported classification for test, build, deployment, performance, security, and CI failures.",
+    "developerName": "Lance Willett",
+    "category": "Productivity",
+    "capabilities": ["Interactive"],
+    "defaultPrompt": [
+      "Classify this test failure from the evidence."
+    ]
+  }
+}

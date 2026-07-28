@@ -15,7 +15,7 @@ Add this marketplace once:
 Then install any plugin by name:
 
 ```
-/plugin install kb-to-spec@ai-plugins
+/plugin install flake-to-fact@ai-plugins
 ```
 
 ### Codex
@@ -29,10 +29,14 @@ codex plugin marketplace add https://github.com/lancewillett/ai-plugins.git
 Then install any plugin by name:
 
 ```
-codex plugin install kb-to-spec@ai-plugins
+codex plugin install flake-to-fact@ai-plugins
 ```
 
 ## Skills
+
+### flake-to-fact
+
+Tests are not flaky. Flake to fact replaces vague “flaky” or “flakiness” language with the narrowest evidence-supported label for a test, build, deployment, performance, security, or CI failure. It separates recurrence from cause, records confidence, and asks for a specific diagnostic when evidence is insufficient. Use it when triaging intermittent failures, responding to alerts, or writing failure reports.
 
 ### kb-to-spec
 
