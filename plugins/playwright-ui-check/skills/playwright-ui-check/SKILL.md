@@ -26,7 +26,7 @@ Browser auth is held **in the running browser process**, not on disk. HTTP Basic
 
 ## Prerequisites
 
-- Node.js and Playwright available (`npm i -D playwright`, or reuse an existing install and `require()` it by absolute path if your script lives outside that install).
+- Node.js and Playwright available (`npm i -D playwright`, or reuse an existing install and `require()` it by absolute path if your script lives outside that install). When your scripts only ever drive the Chrome already on the machine, `npm i playwright-core` gives the same API without downloading browser bundles.
 - Chrome or Chromium.
 - Pick an **unused** CDP port per session (e.g. `9333`) and a **fresh, unique** profile directory per session. Both matter — see [Troubleshooting](#troubleshooting).
 - Prefer an existing repository helper when one exists. It usually encodes the site's login and readiness behavior better than a new generic script.
@@ -151,6 +151,15 @@ Set explicit timeouts from the endpoint's observed latency; a search that normal
 
 For bounded aggregate or paginated views, test continuation too. A valid source result may be absent from the first batch and appear only after **More**, **Next**, or scrolling. Do not classify it as missing until the relevant continuation has settled.
 
+**Navigating to a URL that differs only by fragment does not reload the page.** `page.goto('…/#key=abc')` from `…/#key=xyz`, or from the same page with no fragment, is a same-document navigation. Inline scripts never re-run and your assertions read the previous render, which looks like the feature silently failing. Go through `about:blank` first to force a real load:
+
+```js
+await page.goto('about:blank');
+await page.goto(target + '#key=' + encodeURIComponent(key), { waitUntil: 'domcontentloaded' });
+```
+
+This matters most for fragment-driven features, where the fragment *is* the input and every case you want to test differs only after the `#`.
+
 ### 3. Capture 2x screenshots (when you need sharp evidence)
 
 `page.screenshot()` uses the page's current device scale factor. A default CDP-attached context is commonly 1x, which goes fuzzy after downstream scaling. To force retina evidence on an existing attached page, drive CDP directly:
@@ -166,6 +175,17 @@ require('node:fs').writeFileSync('out@2x.png', Buffer.from(shot.data, 'base64'))
 ```
 
 Use `deviceScaleFactor: 2` with `clip.scale: 1`. Combining DPR 2 with `clip.scale: 2` would create an unwanted 4x image, so keep `clip.scale` at 1. Verify the saved pixel size afterward (a 1440x1000 viewport at 2x is a 2880x2000 PNG).
+
+**`clip` takes document coordinates, `getBoundingClientRect()` returns viewport coordinates.** They agree only at scroll position zero, so cropping to one element works until the page is scrolled and then silently captures the wrong region. Add the scroll offsets:
+
+```js
+const box = await page.evaluate(() => {
+  const r = document.querySelector('#panel').getBoundingClientRect();
+  return { x: r.x + window.scrollX, y: r.y + window.scrollY, width: r.width, height: r.height };
+});
+const shot = await client.send('Page.captureScreenshot',
+  { format: 'png', clip: { ...box, scale: 1 } });
+```
 
 ### 4. Tear down — scoped to your own session
 
@@ -193,6 +213,8 @@ These are the failures that eat the most time; most trace back to profile or por
 | Attached page is unauthenticated | You made a **new** context via `connectOverCDP`; it doesn't share the primed auth cache. | Reuse `browser.contexts()[0]` and open a new **page**, not a new context. |
 | The session dies during cleanup | An unscoped `pkill`, or `browser.close()` on a CDP attach, tore down a shared browser. | Close only your page; scope kills to your port/URL. |
 | A modal "won't close" in your assertions | You checked DOM **presence**; many modals stay mounted and just hide. | Check real visibility (`el.offsetParent !== null && getComputedStyle(el).display !== 'none'`), not element existence. |
+| Assertions read a stale page after a fragment-only URL change | `page.goto()` to a URL differing only after the `#` is a same-document navigation, so inline scripts never re-run. | Go through `about:blank` first, then to the fragment URL. |
+| A cropped screenshot captures the wrong region | `clip` takes **document** coordinates; `getBoundingClientRect()` returns **viewport** coordinates. They diverge once the page scrolls. | Add `window.scrollX`/`scrollY` to the rect before passing it as `clip`. |
 | Script hangs at the end | `page.close()` on a CDP-attached page can block. | End with `process.exit(0)`. macOS has no `timeout` to wrap it. |
 | A repo's own helper never reports ready | It gates readiness on an app-specific selector (app UI) your page doesn't render. | Don't gate on app UI; wait for a generic load signal or the CDP endpoint becoming reachable. |
 | Helper printed "ready" and then vanished | The agent's command session ended and terminated its child process. | Run the helper in a dedicated persistent terminal; verify its PID and CDP endpoint before every smoke run. |
