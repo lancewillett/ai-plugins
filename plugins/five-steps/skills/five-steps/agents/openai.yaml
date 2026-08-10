@@ -1,0 +1,4 @@
+interface:
+  display_name: "Five steps"
+  short_description: "Question, delete, simplify, accelerate, automate"
+  default_prompt: "Use $five-steps to optimize this plan or process."

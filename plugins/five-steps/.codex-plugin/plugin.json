@@ -1,0 +1,21 @@
+{
+  "name": "five-steps",
+  "description": "Apply the 5-step optimization framework (question, delete, simplify, accelerate, automate—in that order) to a plan or an existing system, then edit the target in place.",
+  "version": "1.0.0",
+  "author": {
+    "name": "Lance Willett"
+  },
+  "license": "MIT",
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "Five steps",
+    "shortDescription": "Question, delete, simplify, accelerate, automate",
+    "longDescription": "Apply the 5-step optimization framework in order—question every requirement, delete parts and processes, simplify, accelerate cycle time, automate last—to a plan or an existing system, then edit the target in place.",
+    "developerName": "Lance Willett",
+    "category": "Productivity",
+    "capabilities": ["Interactive"],
+    "defaultPrompt": [
+      "Run this plan through the five steps."
+    ]
+  }
+}
