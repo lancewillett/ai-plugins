@@ -58,6 +58,10 @@ Audit and clean up your Claude Code configuration. It checks skills, hooks, sett
 
 Verify a login-gated UI loads and behaves correctly — to validate product changes fast — by logging in once and attaching a headless browser over the Chrome DevTools Protocol for every check after. It documents the auth-once session model, a reference Playwright runner (start a session, attach and drive, 2x screenshots, scoped teardown), and the collision and auth-capture pitfalls that waste the most time. Use it when a page needs a login your script can't drive and you'll check it more than once, or when you say "check this authed UI with Playwright" or "set up a reusable headless browser session".
 
+### five-steps
+
+Apply the 5-step optimization framework to a plan or an existing system, then edit the target in place. The five steps: question every requirement, delete parts and processes, simplify, accelerate cycle time, automate last. The order is the point—it forces the harder questions before automation becomes an option. Adapted from Elon Musk's five-step "algorithm" for improving a process. Use it when shaping a new plan, auditing a workflow you already run, or when you say "run this through the five steps".
+
 ## Contributing
 
 This repo is for personal use, but pull requests that improve or generalize existing skills are welcome. New skills should be general-purpose and not private or environment-specific.

@@ -1,0 +1,12 @@
+{
+  "name": "five-steps",
+  "description": "Apply the 5-step optimization framework (question, delete, simplify, accelerate, automate—in that order) to a plan or an existing system, then edit the target in place.",
+  "version": "1.0.0",
+  "author": {
+    "name": "Lance Willett"
+  },
+  "license": "MIT",
+  "skills": [
+    "./skills/five-steps"
+  ]
+}
