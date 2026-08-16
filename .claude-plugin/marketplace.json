@@ -85,6 +85,19 @@
       },
       "license": "MIT",
       "skills": ["./skills/five-steps"]
+    },
+    {
+      "name": "unit-tests",
+      "description": "Audit existing test suites for meaningful coverage, brittle checks, duplicated assertions, and genuine gaps. Improves test quality without blindly adding tests.",
+      "source": "./plugins/unit-tests",
+      "version": "1.0.0",
+      "author": {
+        "name": "Lance Willett"
+      },
+      "license": "GPL-2.0-only",
+      "agents": ["./agents/unit-tests.md"],
+      "commands": ["./commands/audit-tests.md"],
+      "skills": ["./skills/unit-tests"]
     }
   ]
 }

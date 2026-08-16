@@ -1,0 +1,19 @@
+{
+  "name": "unit-tests",
+  "version": "1.0.0",
+  "description": "Audit existing test suites for meaningful coverage, brittle checks, duplicated assertions, and genuine gaps. Improves test quality without blindly adding tests.",
+  "author": {
+    "name": "Lance Willett"
+  },
+  "repository": "https://github.com/lancewillett/ai-plugins",
+  "license": "GPL-2.0-only",
+  "agents": [
+    "./agents/unit-tests.md"
+  ],
+  "commands": [
+    "./commands/audit-tests.md"
+  ],
+  "skills": [
+    "./skills/unit-tests"
+  ]
+}

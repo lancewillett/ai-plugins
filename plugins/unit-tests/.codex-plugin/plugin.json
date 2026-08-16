@@ -1,0 +1,26 @@
+{
+  "name": "unit-tests",
+  "version": "1.0.0",
+  "description": "Audit existing test suites for meaningful coverage, brittle checks, duplicated assertions, and genuine gaps. Improves test quality without blindly adding tests.",
+  "author": {
+    "name": "Lance Willett"
+  },
+  "repository": "https://github.com/lancewillett/ai-plugins",
+  "license": "GPL-2.0-only",
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "Unit tests",
+    "shortDescription": "Audit tests for quality, speed, and value",
+    "longDescription": "Review existing test suites for meaningful coverage, brittle checks, duplicated assertions, slow feedback loops, and real gaps. Improve test quality without blindly adding more tests.",
+    "developerName": "Lance Willett",
+    "category": "Engineering",
+    "capabilities": [
+      "Interactive",
+      "Write"
+    ],
+    "defaultPrompt": [
+      "Audit the tests in this repository.",
+      "Improve this test suite without adding low-value tests."
+    ]
+  }
+}
