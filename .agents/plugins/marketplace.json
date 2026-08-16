@@ -72,7 +72,7 @@
     },
     {
       "name": "five-steps",
-      "description": "Apply the 5-step optimization framework (question, delete, simplify, accelerate, automate—in that order) to a plan or an existing system, then edit the target in place.",
+      "description": "Apply the 5-step optimization framework (question, delete, simplify, accelerate, automate\u2014in that order) to a plan or an existing system, then edit the target in place.",
       "source": "./plugins/five-steps",
       "version": "1.0.0",
       "author": {
@@ -80,6 +80,18 @@
       },
       "license": "MIT",
       "skills": "./skills/five-steps"
+    },
+    {
+      "name": "unit-tests",
+      "source": {
+        "source": "local",
+        "path": "./plugins/unit-tests"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Engineering"
     }
   ]
 }

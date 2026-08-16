@@ -32,11 +32,15 @@ Then install any plugin by name:
 codex plugin install flake-to-fact@ai-plugins
 ```
 
-## Skills
+## Plugins and skills
 
 ### flake-to-fact
 
 Tests are not flaky. Flake to fact replaces vague “flaky” or “flakiness” language with the narrowest evidence-supported label for a test, build, deployment, performance, security, or CI failure. It separates recurrence from cause, records confidence, and asks for a specific diagnostic when evidence is insufficient. Use it when triaging intermittent failures, responding to alerts, or writing failure reports.
+
+### unit-tests
+
+Audit an existing test suite and make it better—not bigger. The unit-tests plugin finds low-value checks, brittle assertions, duplicate coverage, slow feedback loops, and genuine regression gaps. Use `/unit-tests:audit-tests` in Claude Code, or ask Codex to audit or improve tests through the bundled skill. The auditor records before-and-after results and never changes an expected value merely to make a failure pass.
 
 ### kb-to-spec
 
@@ -68,4 +72,4 @@ This repo is for personal use, but pull requests that improve or generalize exis
 
 ## License
 
-MIT: see [LICENSE](./LICENSE).
+Most plugins use the MIT license: see [LICENSE](./LICENSE). The unit-tests plugin remains GPL-2.0-only; see [its license](./plugins/unit-tests/LICENSE).
