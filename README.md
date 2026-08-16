@@ -40,7 +40,7 @@ Tests are not flaky. Flake to fact replaces vague “flaky” or “flakiness”
 
 ### unit-tests
 
-Audit an existing test suite and make it better—not bigger. The unit-tests plugin finds low-value checks, brittle assertions, duplicate coverage, slow feedback loops, and genuine regression gaps. Use `/unit-tests:audit-tests` in Claude Code, or ask Codex to audit or improve tests through the bundled skill. The auditor records before-and-after results and never changes an expected value merely to make a failure pass.
+Audit an existing test suite and make it better—not bigger. The unit-tests plugin finds low-value checks, brittle assertions, duplicate coverage, slow feedback loops, and genuine regression gaps. Use `/unit-tests:audit-tests` in Claude Code, or ask Codex to audit or improve tests through the bundled skill. The auditor records before-and-after results and never changes an expected value merely to make a failure pass. See the [usage guide](./skills/unit-tests/README.md) for prompts and guardrails.
 
 ### kb-to-spec
 
