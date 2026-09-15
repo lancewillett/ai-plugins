@@ -129,7 +129,7 @@ Use this only when you specifically need GitHub's **native attachment storage** 
 
    **React composer** (no `#new_comment_field` — the new Issues UI, rolling out to PRs): there is **no** `file-attachment` element and no file input in the DOM at all until the chooser opens. Instead:
    1. Click into the composer textarea: `textarea[placeholder="Use Markdown to format your comment"]`.
-   2. Click the toolbar button whose text starts with "Add Files" (`button:has-text("Add Files")` — full label "Add Files: Paste, drop, or click"). This opens a native file chooser.
+   2. Click the add-files toolbar button. This opens a native file chooser. Match the button's accessible name on "add files", ignoring case: `getByRole("button", { name: /add files/i })`. Don't match the exact label. GitHub has shipped both "Add Files: Paste, drop, or click" and "Paste, drop, or click to add files".
    3. Answer the pending file chooser with `browser_file_upload`. Multi-select works — pass all screenshot paths in one call.
 3. After each upload, read the comment field with `browser_evaluate` — `document.querySelector('#new_comment_field').value` on the legacy composer, or the React composer textarea's `.value`. GitHub first inserts `![Uploading <name>…]()`, then swaps in the final reference, e.g. `<img … src="https://<host>/user-attachments/assets/<uuid>" />`. Poll until a `user-attachments/assets/` URL appears that no longer says `Uploading`, and collect it.
 
@@ -144,7 +144,7 @@ Use this only when you specifically need GitHub's **native attachment storage** 
 
    If submitting through the browser UI, click the exact `Comment` button. A broad text match for `Comment` can also match secondary actions such as `Close with comment`.
 
-**Fragility note:** this depends on GitHub's current composer DOM. The legacy path relies on the `<file-attachment>` custom element; the React path relies on the "Add Files" toolbar button label. GitHub restructures these periodically (the React Issues composer shipped without any file input, breaking the original selector in July 2026) — if neither variant matches, re-inspect the composer rather than assuming upload is impossible.
+**Fragility note:** this depends on GitHub's current composer DOM. The legacy path relies on the `<file-attachment>` custom element; the React path relies on the add-files toolbar button's accessible name. GitHub restructures these periodically. The React Issues composer shipped without any file input, breaking the original selector in July 2026. The add-files button label changed by September 2026. If neither variant matches, re-inspect the composer rather than assuming upload is impossible.
 
 #### Headless Playwright upload
 
@@ -176,11 +176,11 @@ How a profile becomes useful:
 4. Later headless runs point `PLAYWRIGHT_PROFILE_DIR` at the same profile.
 5. If GitHub shows the PR comment box, the session is still valid. If it redirects to login, the profile is not ready.
 
-The minimal pattern below targets the legacy composer. On the React composer (no `#new_comment_field`), adapt it: locate `textarea[placeholder="Use Markdown to format your comment"]`, click the "Add Files" toolbar button, and handle the chooser with `page.waitForEvent("filechooser")` + `fileChooser.setFiles([...])` — the polling and URL-collection logic stays the same against that textarea's value.
+The minimal pattern below targets the legacy composer. On the React composer (no `#new_comment_field`), adapt it: locate `textarea[placeholder="Use Markdown to format your comment"]`, click the add-files toolbar button (`page.getByRole("button", { name: /add files/i })`), and handle the chooser with `page.waitForEvent("filechooser")` + `fileChooser.setFiles([...])` — the polling and URL-collection logic stays the same against that textarea's value.
 
 Safe checks:
 
-- Check whether the PR page has `#new_comment_field` (legacy) or the "Add Files" toolbar button (React) before uploading.
+- Check whether the PR page has `#new_comment_field` (legacy) or the add-files toolbar button (React) before uploading.
 - It is safe to inspect cookie host names or counts to find likely profiles.
 - Never print cookie values, session tokens, local storage values, or credential files.
 - Do not copy profile directories as an auth workaround. Browser auth can depend on operating-system and browser storage details, and copied profiles may fail or leak sensitive state.
@@ -372,4 +372,4 @@ Avoid OS-level screenshot tools as the first fallback. They can hit screen-recor
 | Auth required | Prompt user to log in manually, then retry |
 | Screenshot is blank/loading | Use `browser_wait_for` with longer timeout, retry |
 | Browser not installed | Run `browser_install` to set up Playwright |
-| PR upload does nothing / no asset URL | First try the CLI path (`gh agent-screenshot upload … --new-comment`) — it avoids the browser entirely. If using the browser fallback, confirm it is logged in to the PR's host and check which composer the page has (legacy `file-attachment input` vs React "Add Files" button), then use the matching Step 6 path |
+| PR upload does nothing / no asset URL | First try the CLI path (`gh agent-screenshot upload … --new-comment`) — it avoids the browser entirely. If using the browser fallback, confirm it is logged in to the PR's host and check which composer the page has (legacy `file-attachment input` vs React add-files button), then use the matching Step 6 path |
