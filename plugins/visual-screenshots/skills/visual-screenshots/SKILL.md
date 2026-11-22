@@ -81,7 +81,7 @@ Post the screenshots straight into the PR as inline images, instead of asking th
 
 #### Primary: `gh agent-screenshot` (CLI, no browser)
 
-The [`gh-agent-screenshot`](https://github.com/mgiovani/gh-agent-screenshot) CLI extension uploads a local PNG using only your existing `gh` authentication — no logged-in browser, no web session, no Personal Access Token. It works the same on **github.com** and **GitHub Enterprise**. Use this whenever `gh` is authenticated for the PR's host, which is the common coding-agent case.
+The [`gh-agent-screenshot`](https://github.com/mgiovani/gh-agent-screenshot) CLI extension uploads a local PNG using only your existing `gh` authentication — no logged-in browser, no web session, no Personal Access Token. It works on **github.com** only: v0.2.1 sends every request to `api.github.com` and ignores `GH_HOST`, so a GitHub Enterprise PR fails with a network error. Use it whenever the PR is on github.com and `gh` is authenticated. For GitHub Enterprise, use the browser path below.
 
 Install once:
 
@@ -108,10 +108,10 @@ How it works: the extension commits the image as a Git blob on a dedicated `refs
 
 #### Fallback: drive GitHub's comment-box uploader (browser)
 
-Use this only when you specifically need GitHub's **native attachment storage** — `…/user-attachments/assets/<uuid>` URLs stored outside the repo, with no leftover upload refs — or when the CLI extension is unavailable. It drives GitHub's own comment-box uploader, produces canonical asset URLs, and works the same on **github.com** and **GitHub Enterprise** (the asset URL host mirrors the PR's host).
+Use this for **GitHub Enterprise** PRs. Also use it when you need GitHub's **native attachment storage** — `…/user-attachments/assets/<uuid>` URLs stored outside the repo, with no leftover upload refs — or when the CLI extension is unavailable. It drives GitHub's own comment-box uploader, produces canonical asset URLs, and works the same on **github.com** and **GitHub Enterprise** (the asset URL host mirrors the PR's host).
 
 **Requirements:**
-- A browser session **logged in to the PR's GitHub host**. If it isn't, the page redirects to login — ask the user to log in in the browser, then continue. On Enterprise hosts with 2FA/SSO this is a one-time step; use a persistent browser profile so the session is reused.
+- A browser session **logged in to the PR's GitHub host**. If it isn't, the page redirects to login. **Check that the browser is visible before asking the user to log in.** A managed Playwright MCP browser usually runs headless, so the user has no window to log in to. In that case, run the headless upload below: it opens a visible window only for the login. On Enterprise hosts with 2FA/SSO this is a one-time step; use a persistent browser profile so the session is reused.
 - Do **not** use a Personal Access Token for this — GitHub's upload endpoint rejects PATs (`422`). The inline-image upload requires the interactive web session.
 
 **Steps:**
@@ -156,7 +156,7 @@ Use this path when:
 - A Playwright-managed browser profile is already logged in to the PR's GitHub host.
 - The screenshots are already generated and verified at 2x/device scale.
 
-Do not use this path to bypass login. If the profile lands on the GitHub login page, stop and ask the user to log in through a controlled browser session. Never read cookie values or copy cookies between profiles.
+Do not use this path to bypass login. If the profile lands on the GitHub login page, relaunch the same profile with `headless: false`, call `page.bringToFront()`, and tell the user a sign-in window is open. Wait for the comment box, close that window, and relaunch headless. The snippet below does this. Never ask the user to log in to a headless browser; there is no window to log in to. Never read cookie values or copy cookies between profiles.
 
 How it works:
 
@@ -202,19 +202,34 @@ if (!prUrl || !profileDir || screenshots.length === 0) {
 }
 
 (async () => {
-  const context = await chromium.launchPersistentContext(profileDir, {
-    headless: true,
-    channel: "chrome",
-    args: process.env.HTTPS_PROXY
-      ? [`--proxy-server=${process.env.HTTPS_PROXY}`]
-      : [],
-  });
-  const page = context.pages()[0] || await context.newPage();
+  const launch = (headless) =>
+    chromium.launchPersistentContext(profileDir, {
+      headless,
+      channel: "chrome",
+      args: process.env.HTTPS_PROXY
+        ? [`--proxy-server=${process.env.HTTPS_PROXY}`]
+        : [],
+    });
+  const open = async (context) => {
+    const page = context.pages()[0] || await context.newPage();
+    await page.goto(prUrl, { waitUntil: "domcontentloaded", timeout: 45_000 });
+    return page;
+  };
 
-  await page.goto(prUrl, {
-    waitUntil: "domcontentloaded",
-    timeout: 45_000,
-  });
+  let context = await launch(true);
+  let page = await open(context);
+  if ((await page.locator("#new_comment_field").count()) === 0) {
+    // Not signed in: show a real window for the one-time login, then go back to headless.
+    await context.close();
+    console.log("Sign in to GitHub in the window that just opened. It closes by itself.");
+    context = await launch(false);
+    page = await open(context);
+    await page.bringToFront();
+    await page.waitForSelector("#new_comment_field", { timeout: 10 * 60_000 });
+    await context.close();
+    context = await launch(true);
+    page = await open(context);
+  }
 
   const textarea = page.locator("#new_comment_field");
   if ((await textarea.count()) === 0) {
@@ -240,19 +255,22 @@ if (!prUrl || !profileDir || screenshots.length === 0) {
     const previousValue = await textarea.inputValue();
     await input.setInputFiles(screenshot);
 
-    await page.waitForFunction(
-      (oldValue) => {
-        const value =
-          document.querySelector("#new_comment_field")?.value || "";
-        return (
-          value !== oldValue &&
-          value.includes("user-attachments/assets/") &&
-          !value.includes("Uploading")
-        );
-      },
-      previousValue,
-      { timeout: 60_000 }
-    );
+    // Poll from Node: GitHub Enterprise's CSP blocks page.waitForFunction (no unsafe-eval).
+    const deadline = Date.now() + 60_000;
+    for (;;) {
+      const value = await textarea.inputValue();
+      if (
+        value !== previousValue &&
+        value.includes("user-attachments/assets/") &&
+        !value.includes("Uploading")
+      ) {
+        break;
+      }
+      if (Date.now() > deadline) {
+        throw new Error(`Upload did not finish: ${screenshot}`);
+      }
+      await page.waitForTimeout(500);
+    }
 
     const value = await textarea.inputValue();
     const matches = [
@@ -300,7 +318,7 @@ Some dev environments require login. Check the repo's CLAUDE.md for auth details
 
 If auth fails, tell the user and suggest they log in manually in the browser first.
 
-**Uploading to a PR (Step 6):** the primary path (`gh agent-screenshot`) needs only `gh` authenticated for the PR's host — no browser. Only the browser *fallback* needs a session logged in to the *GitHub host* of the PR (github.com or your Enterprise host), separate from dev-server auth; there, use a persistent browser profile so an Enterprise 2FA/SSO login is a one-time step, and never rely on a Personal Access Token for the image upload (the endpoint rejects it).
+**Uploading to a PR (Step 6):** on github.com, the primary path (`gh agent-screenshot`) needs only `gh` authentication, with no browser. GitHub Enterprise PRs need the browser path and a session logged in to that host, separate from dev-server auth. Use a persistent browser profile so an Enterprise 2FA/SSO login is a one-time step, in a visible window. Never rely on a Personal Access Token for the image upload; the endpoint rejects it.
 
 ## Viewport sizes
 
@@ -372,4 +390,4 @@ Avoid OS-level screenshot tools as the first fallback. They can hit screen-recor
 | Auth required | Prompt user to log in manually, then retry |
 | Screenshot is blank/loading | Use `browser_wait_for` with longer timeout, retry |
 | Browser not installed | Run `browser_install` to set up Playwright |
-| PR upload does nothing / no asset URL | First try the CLI path (`gh agent-screenshot upload … --new-comment`) — it avoids the browser entirely. If using the browser fallback, confirm it is logged in to the PR's host and check which composer the page has (legacy `file-attachment input` vs React add-files button), then use the matching Step 6 path |
+| PR upload does nothing / no asset URL | On github.com, first try the CLI path (`gh agent-screenshot upload … --new-comment`) — it avoids the browser entirely. On GitHub Enterprise, use the headless upload; it opens a visible window if a login is needed. If using the browser fallback, confirm it is logged in to the PR's host and check which composer the page has (legacy `file-attachment input` vs React add-files button), then use the matching Step 6 path |
