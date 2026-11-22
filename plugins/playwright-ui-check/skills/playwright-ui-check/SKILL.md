@@ -37,6 +37,8 @@ Browser auth is held **in the running browser process**, not on disk. HTTP Basic
 
 Run a helper that opens one visible window for the login, then keeps a headless browser alive on a CDP port. There are two auth shapes:
 
+**Check which shape you have before choosing.** A `401` from `curl` on the page means Basic Auth, even when the login screen looks like SSO. If the Basic Auth capture below times out, fix the capture. Don't fall back to the cookie path. Relaunching the profile then fails with `ERR_INVALID_AUTH_CREDENTIALS`.
+
 **Cookie / SSO auth** — the session is stored in the profile, so a persistent profile is enough: launch headed with `launchPersistentContext(profileDir)`, log in once, then reuse that same profile directory headless. This is the simple case — it relaunches per run and needs no CDP port, so the attach and teardown machinery below applies mainly to the Basic Auth long-lived-session path.
 
 **HTTP Basic Auth** — the credentials live in memory, not the profile, so a saved profile won't carry them. Capture them from the live login and hold them in the running process instead:
@@ -78,8 +80,9 @@ const waitFor = async (cond, ms, msg) => {
   bootstrap = await chromium.launchPersistentContext(profileDir, { headless: false });
   const bpage = bootstrap.pages()[0] || await bootstrap.newPage();
   let captured = null;
-  bpage.on('request', req => {
-    const h = req.headers()['authorization'];
+  // allHeaders(), not headers(): headers() omits the Authorization header Chrome adds after the 401.
+  bootstrap.on('request', async req => {
+    const h = (await req.allHeaders().catch(() => ({})))['authorization'];
     if (h && h.startsWith('Basic ') && new URL(req.url()).origin === origin) captured = h;
   });
   console.log(`Log in to ${origin} in the window that just opened...`);
@@ -97,7 +100,8 @@ const waitFor = async (cond, ms, msg) => {
   browser = await chromium.launch({ headless: true, args: [`--remote-debugging-port=${cdpPort}`] });
   context = await browser.newContext({ httpCredentials: { username: u, password: p } });
   const page = await context.newPage();
-  await page.goto(url, { waitUntil: 'domcontentloaded' }); // prime the origin's in-memory auth cache
+  const primed = await page.goto(url, { waitUntil: 'domcontentloaded' }); // this page is the one drivers reuse
+  if (!primed || primed.status() >= 400) throw new Error(`Priming load failed: ${primed && primed.status()}`);
   console.log(`Session ready on http://127.0.0.1:${cdpPort}; helper PID ${process.pid} - leave this process running.`);
   await new Promise(() => {}); // stay alive until killed
 })().catch(async e => { console.error(e.message); await shutdown(1); });
@@ -113,7 +117,7 @@ Authentication proves access, not that the intended build is loaded. Record the 
 
 ### 2. Attach and drive
 
-Every later run attaches over CDP and reuses the **existing** context, which already holds the origin's cached auth. Never create a fresh context — a new one is unauthenticated.
+Every later run attaches over CDP and **navigates the helper's primed page**. Don't open a new page or a new context. `httpCredentials` are answered by the Playwright connection that launched the browser, and only for pages it already tracks. A page an attached client opens, even in the same context, gets `ERR_INVALID_AUTH_CREDENTIALS`. The primed page can still go to any URL on the origin. Never close it.
 
 ```js
 // drive.js  ->  node drive.js
@@ -123,9 +127,9 @@ const TARGET = 'https://app.example.com/';
 
 (async () => {
   const browser = await chromium.connectOverCDP(CDP);
-  const context = browser.contexts()[0];                 // reuse the authed context
-  const page = context.pages().find(p => p.url().startsWith(new URL(TARGET).origin))
-            || await context.newPage();                   // new PAGE in that context, not a new context
+  const page = browser.contexts().flatMap(c => c.pages())
+    .find(p => p.url().startsWith(new URL(TARGET).origin));   // the helper's primed page
+  if (!page) throw new Error('Primed page not found - restart the session helper.');
   const errors = [];
   page.on('console', m => m.type() === 'error' && errors.push(m.text().slice(0, 200)));
   page.on('pageerror', e => errors.push('pageerror: ' + e.message.slice(0, 200)));
@@ -140,8 +144,8 @@ const TARGET = 'https://app.example.com/';
   //   await page.screenshot({ path: 'out.png' });
 
   console.log('console errors:', JSON.stringify(errors));
-  await page.close();          // close ONLY your page; never browser.close() on a CDP attach
-  process.exit(0);             // self-exit - page.close() can hang, and macOS has no `timeout`
+  page.removeAllListeners();   // leave the primed page open; never page.close() or browser.close() here
+  process.exit(0);             // self-exit - a CDP attach can keep Node alive
 })().catch(e => { console.error(e.message); process.exit(1); });
 ```
 
@@ -206,16 +210,16 @@ These are the failures that eat the most time; most trace back to profile or por
 
 | Symptom | Cause | Fix |
 |---|---|---|
-| `Basic Auth header not observed` | The profile already had cached credentials (reused/polluted profile, or the OS keychain auto-filled), so no fresh `401 -> login` fired to capture. | Use a **brand-new, unique** profile directory so a real login prompt appears. |
+| `Basic Auth header not observed` | The profile already had cached credentials (reused/polluted profile, or the OS keychain auto-filled), so no fresh `401 -> login` fired to capture. Or the listener read `req.headers()`, which omits the browser-added `Authorization` header. | Use a **brand-new, unique** profile directory so a real login prompt appears, and read `await req.allHeaders()` on the context's `request` event. |
 | Launcher exits immediately / no CDP endpoint | The CDP port was already taken by another session. | Pick an **unused** port; don't assume a default is free. |
 | `ERR_INVALID_AUTH_CREDENTIALS` after relaunch | Basic Auth is in-memory; relaunching a saved profile drops it. | Don't chase profile persistence — keep the **process** alive and attach to it. |
 | `401` even though you "have a session" | Credentials are **per-origin**; a session for one host doesn't cover another. | Start a **separate session per origin**. |
-| Attached page is unauthenticated | You made a **new** context via `connectOverCDP`; it doesn't share the primed auth cache. | Reuse `browser.contexts()[0]` and open a new **page**, not a new context. |
-| The session dies during cleanup | An unscoped `pkill`, or `browser.close()` on a CDP attach, tore down a shared browser. | Close only your page; scope kills to your port/URL. |
+| Attached page gets `ERR_INVALID_AUTH_CREDENTIALS` | The attached client opened its own page or context. Only the launching connection answers auth challenges, and only for pages it tracks. | Navigate the helper's primed page and never close it. Restart the helper if that page is gone. |
+| The session dies during cleanup | An unscoped `pkill`, or `browser.close()` on a CDP attach, tore down a shared browser. | Close nothing on an attach; scope kills to your port/URL. |
 | A modal "won't close" in your assertions | You checked DOM **presence**; many modals stay mounted and just hide. | Check real visibility (`el.offsetParent !== null && getComputedStyle(el).display !== 'none'`), not element existence. |
 | Assertions read a stale page after a fragment-only URL change | `page.goto()` to a URL differing only after the `#` is a same-document navigation, so inline scripts never re-run. | Go through `about:blank` first, then to the fragment URL. |
 | A cropped screenshot captures the wrong region | `clip` takes **document** coordinates; `getBoundingClientRect()` returns **viewport** coordinates. They diverge once the page scrolls. | Add `window.scrollX`/`scrollY` to the rect before passing it as `clip`. |
-| Script hangs at the end | `page.close()` on a CDP-attached page can block. | End with `process.exit(0)`. macOS has no `timeout` to wrap it. |
+| Script hangs at the end | The CDP connection keeps Node alive. | End with `process.exit(0)`. macOS has no `timeout` to wrap it. |
 | A repo's own helper never reports ready | It gates readiness on an app-specific selector (app UI) your page doesn't render. | Don't gate on app UI; wait for a generic load signal or the CDP endpoint becoming reachable. |
 | Helper printed "ready" and then vanished | The agent's command session ended and terminated its child process. | Run the helper in a dedicated persistent terminal; verify its PID and CDP endpoint before every smoke run. |
 | The page shows the default build instead of the PR | A deployment or sync process changed the target checkout during testing. | Pin and re-check the branch, commit, or build identifier before and after probes. |
