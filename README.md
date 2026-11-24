@@ -66,6 +66,10 @@ Verify a login-gated UI loads and behaves correctly — to validate product chan
 
 Apply the 5-step optimization framework to a plan or an existing system, then edit the target in place. The five steps: question every requirement, delete parts and processes, simplify, accelerate cycle time, automate last. The order is the point—it forces the harder questions before automation becomes an option. Adapted from Elon Musk's five-step "algorithm" for improving a process. Use it when shaping a new plan, auditing a workflow you already run, or when you say "run this through the five steps".
 
+### agent-build
+
+Build a change with a coding agent and hand over a PR that is actually ready to review. It runs `five-steps` first, proves the agent run started and watches it, reviews the final diff through several lenses, and proves the change on the real path. The PR carries a Definition of Done, every review comment gets an answer, and CI is fully green before handoff. A bundled `gate-check.py` checks the gates against the PR with the GitHub CLI and opens it in your browser only when all pass. Use it when you say "/agent-build" or ask an agent to build a change end to end.
+
 ## Contributing
 
 This repo is for personal use, but pull requests that improve or generalize existing skills are welcome. New skills should be general-purpose and not private or environment-specific.
