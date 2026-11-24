@@ -1,0 +1,12 @@
+{
+  "name": "agent-build",
+  "description": "Build a change with a coding agent and hand over a ready PR: five-steps first, a proven launch with a sized watcher, a multi-lens review, proof on the real path, a Definition of Done, every review comment answered, and CI fully green. A gate-check script verifies the gates before handoff.",
+  "version": "1.0.0",
+  "author": {
+    "name": "Lance Willett"
+  },
+  "license": "MIT",
+  "skills": [
+    "./skills/agent-build"
+  ]
+}

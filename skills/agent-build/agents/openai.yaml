@@ -1,0 +1,4 @@
+interface:
+  display_name: "Agent build"
+  short_description: "Build a change with an agent and hand over a ready PR"
+  default_prompt: "Use $agent-build to build this change and hand me a ready PR."
