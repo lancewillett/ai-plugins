@@ -1,6 +1,6 @@
 ---
 name: playwright-ui-check
-description: Verify a login-gated UI loads and behaves correctly, to validate product changes fast, by logging in once and attaching a headless browser over CDP for every check after. Covers the auth-once session model, a reference Playwright runner, 2x screenshots, and the collision and auth-capture gotchas that waste the most time. Use it when a page needs a login your script can't drive and you'll check it more than once.
+description: Verify a product change in a login-gated UI, by logging in once and attaching a headless browser over CDP for every check after. Covers UI smoke checks, click and keyboard flows, DOM assertions and 2x screenshots for PR evidence, plus the auth-once session model and the collision and auth-capture gotchas that waste the most time. Use it to test a change you built. To read a page, find something on it or change a setting, use a page-access skill such as use-browser instead.
 argument-hint: "[target URL]"
 allowed-tools: Read, Write, Edit, Bash, Glob, Grep
 ---
@@ -19,6 +19,8 @@ The model is **auth once, attach many**: a human completes one visible login, a 
 - You want deterministic CLI/Node scripts rather than an interactive browser tool.
 
 Skip it if an unauthenticated `curl` or a single fresh Playwright launch already reaches the page.
+
+**Not for reading or editing pages.** Reading a logged-in page, finding something on it, filling a form or changing a setting is page access, not a UI check. Use an API or MCP tool, or a browser-control tool in the user's own signed-in browser, first. Logins are the costliest step, so don't spend one on a read.
 
 ## The model in one paragraph
 
@@ -47,6 +49,9 @@ Run a helper that opens one visible window for the login, then keeps a headless 
 // start-session.js
 //   node start-session.js --url https://app.example.com/ --cdp-port 9333 [--profile-dir DIR]
 const { chromium } = require('playwright');
+const fs = require('fs');
+const net = require('net');
+const path = require('path');
 const arg = (n, d) => { const i = process.argv.indexOf(n); return i > -1 ? process.argv[i + 1] : d; };
 
 const url = arg('--url');
@@ -54,11 +59,15 @@ const cdpPort = Number(arg('--cdp-port', '9333'));
 // A FRESH profile dir per run is what makes a real Basic Auth prompt fire (see Troubleshooting).
 const profileDir = arg('--profile-dir', '/tmp/authed-session-' + Date.now());
 const origin = new URL(url).origin;
+const ownerFile = path.join(profileDir, 'owner.json');
 let bootstrap;
 let browser;
 let context;
 
+let shuttingDown = false;
 const shutdown = async (code = 0) => {
+  shuttingDown = true;
+  fs.rmSync(ownerFile, { force: true });
   await context?.close().catch(() => {});
   await browser?.close().catch(() => {});
   await bootstrap?.close().catch(() => {});
@@ -73,7 +82,14 @@ const waitFor = async (cond, ms, msg) => {
   throw new Error(msg);
 };
 
+const portIsFree = port => new Promise(resolve => {
+  const probe = net.createServer().once('error', () => resolve(false));
+  probe.listen(port, '127.0.0.1', () => probe.close(() => resolve(true)));
+});
+
 (async () => {
+  // Refuse a taken port before the login window opens, so a collision never wastes a login.
+  if (!(await portIsFree(cdpPort))) throw new Error(`CDP port ${cdpPort} is in use. Attach to it if it's yours, or pick another port. Never kill a session you didn't start.`);
   // (a) Visible bootstrap in the fresh profile dir: a human completes the login and we
   //     observe the Basic Auth header. A reused/primed profile auto-auths, so the header
   //     is never seen — which is exactly why the profile must be fresh.
@@ -102,8 +118,16 @@ const waitFor = async (cond, ms, msg) => {
   const page = await context.newPage();
   const primed = await page.goto(url, { waitUntil: 'domcontentloaded' }); // this page is the one drivers reuse
   if (!primed || primed.status() >= 400) throw new Error(`Priming load failed: ${primed && primed.status()}`);
+  browser.on('disconnected', () => {
+    if (shuttingDown) return;
+    fs.rmSync(ownerFile, { force: true });
+    console.error(`Headless browser on CDP port ${cdpPort} closed; the session is gone.`);
+    process.exit(1);
+  });
+  fs.writeFileSync(ownerFile, JSON.stringify({ owner: process.env.SESSION_OWNER || process.env.USER, helperPid: process.pid, origin, cdpPort }));
   console.log(`Session ready on http://127.0.0.1:${cdpPort}; helper PID ${process.pid} - leave this process running.`);
-  await new Promise(() => {}); // stay alive until killed
+  setInterval(() => {}, 1 << 30); // a bare pending Promise doesn't keep Node alive
+  await new Promise(() => {});
 })().catch(async e => { console.error(e.message); await shutdown(1); });
 ```
 
@@ -211,7 +235,7 @@ These are the failures that eat the most time; most trace back to profile or por
 | Symptom | Cause | Fix |
 |---|---|---|
 | `Basic Auth header not observed` | The profile already had cached credentials (reused/polluted profile, or the OS keychain auto-filled), so no fresh `401 -> login` fired to capture. Or the listener read `req.headers()`, which omits the browser-added `Authorization` header. | Use a **brand-new, unique** profile directory so a real login prompt appears, and read `await req.allHeaders()` on the context's `request` event. |
-| Launcher exits immediately / no CDP endpoint | The CDP port was already taken by another session. | Pick an **unused** port; don't assume a default is free. |
+| Launcher refuses: `CDP port … is in use` | Another session holds the port. The helper checks before opening the login window. | Attach to it if it's yours, or pick another port. Read the other session's `owner.json` before touching anything; never kill a session you didn't start. |
 | `ERR_INVALID_AUTH_CREDENTIALS` after relaunch | Basic Auth is in-memory; relaunching a saved profile drops it. | Don't chase profile persistence — keep the **process** alive and attach to it. |
 | `401` even though you "have a session" | Credentials are **per-origin**; a session for one host doesn't cover another. | Start a **separate session per origin**. |
 | Attached page gets `ERR_INVALID_AUTH_CREDENTIALS` | The attached client opened its own page or context. Only the launching connection answers auth challenges, and only for pages it tracks. | Navigate the helper's primed page and never close it. Restart the helper if that page is gone. |
@@ -221,7 +245,7 @@ These are the failures that eat the most time; most trace back to profile or por
 | A cropped screenshot captures the wrong region | `clip` takes **document** coordinates; `getBoundingClientRect()` returns **viewport** coordinates. They diverge once the page scrolls. | Add `window.scrollX`/`scrollY` to the rect before passing it as `clip`. |
 | Script hangs at the end | The CDP connection keeps Node alive. | End with `process.exit(0)`. macOS has no `timeout` to wrap it. |
 | A repo's own helper never reports ready | It gates readiness on an app-specific selector (app UI) your page doesn't render. | Don't gate on app UI; wait for a generic load signal or the CDP endpoint becoming reachable. |
-| Helper printed "ready" and then vanished | The agent's command session ended and terminated its child process. | Run the helper in a dedicated persistent terminal; verify its PID and CDP endpoint before every smoke run. |
+| Helper printed "ready" and then vanished | The agent's command session ended and terminated its child process, or someone killed its browser. The helper now logs "the session is gone" and exits 1 when its browser closes. | Run the helper in a dedicated persistent terminal; verify its PID and CDP endpoint before every smoke run. |
 | The page shows the default build instead of the PR | A deployment or sync process changed the target checkout during testing. | Pin and re-check the branch, commit, or build identifier before and after probes. |
 | A late API response looks like invalid JSON | The script navigated away before asynchronous response validation finished. | Wait for app settlement and await all response-check promises before navigation. |
 | Teardown says complete but the port still listens | The terminal session stopped while the helper or Chrome child survived. | Signal the recorded helper PID, then verify both the PID and CDP port are gone. |
