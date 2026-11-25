@@ -60,7 +60,7 @@ Audit and clean up your Claude Code configuration. It checks skills, hooks, sett
 
 ### playwright-ui-check
 
-Verify a login-gated UI loads and behaves correctly — to validate product changes fast — by logging in once and attaching a headless browser over the Chrome DevTools Protocol for every check after. It documents the auth-once session model, a reference Playwright runner (start a session, attach and drive, 2x screenshots, scoped teardown), and the collision and auth-capture pitfalls that waste the most time. Use it when a page needs a login your script can't drive and you'll check it more than once, or when you say "check this authed UI with Playwright" or "set up a reusable headless browser session".
+Verify a product change in a login-gated UI by logging in once and attaching a headless browser over the Chrome DevTools Protocol for every check after: UI smoke checks, click and keyboard flows, DOM assertions and 2x screenshots for PR evidence. It documents the auth-once session model, a reference Playwright runner (start a session, attach and drive, 2x screenshots, scoped teardown), and the collision and auth-capture pitfalls that waste the most time. The runner refuses a taken CDP port before the login window opens, records an owner file and exits loudly if its browser closes. For reading a logged-in page or changing a setting, use a page-access skill instead.
 
 ### five-steps
 
